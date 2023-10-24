@@ -1,0 +1,30 @@
+.idea
+**/__pycache__
+
+# ignore backend resources
+backend/venv
+backend/db_data
+backend/django_backend/db.sqlite3
+
+# ignore frontend resources
+frontend/react_webapp/.git
+frontend/react_webapp/node_modules
+frontend/react_webapp/yarn.lock
+frontend/react_webapp/.pnp
+frontend/react_webapp/.pnp.js
+
+### testing
+frontend/react_webapp/coverage
+
+### production
+frontend/react_webapp/build
+
+### misc
+frontend/react_webapp/.DS_Store
+frontend/react_webapp/.env.local
+frontend/react_webapp/.env.development.local
+frontend/react_webapp/.env.test.local
+frontend/react_webapp/.env.production.local
+frontend/react_webapp/npm-debug.log*
+frontend/react_webapp/yarn-debug.log*
+frontend/react_webapp/yarn-error.log*
