@@ -3,12 +3,8 @@ name: Node.js-React CI
 on:
   push:
     branches: [ "dev" ]
-    paths:
-      - 'frontend/react_webapp/**'
   pull_request:
     branches: [ "main" ]
-    paths:
-      - 'frontend/react_webapp/**'
 
 jobs:
   build:
