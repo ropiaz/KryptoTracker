@@ -1,0 +1,38 @@
+name: Node.js-React CI
+
+on:
+  push:
+    branches: [ "dev" ]
+    paths:
+      - 'frontend/react_webapp/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'frontend/react_webapp/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - name: Change to React directory
+        run: cd frontend/react_webapp
+      - name: Install Dependencies
+        run: npm ci
+        working-directory: frontend/react_webapp
+      - name: Run Build
+        run: npm run build
+        working-directory: frontend/react_webapp
+      - name: Run Tests
+        run: npm test
+        working-directory: frontend/react_webapp
