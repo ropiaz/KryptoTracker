@@ -4,7 +4,7 @@ import Footer from "./Footer";
 
 export default function GuestLayout(){
     return (
-        <div>
+        <div id="guestlayout">
             <Header />
             <main>
                 <Outlet />

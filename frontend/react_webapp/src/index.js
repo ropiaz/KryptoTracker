@@ -1,7 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import {RouterProvider} from "react-router-dom";
 import reportWebVitals from './reportWebVitals';
+import {RouterProvider} from "react-router-dom";
+import {ContextProvider} from "./contexts/ContextProvider";
 import router from "./router.jsx";
 
 import './index.css';
@@ -13,7 +14,9 @@ import "bootstrap/dist/js/bootstrap.bundle.min";
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
     <React.StrictMode>
-        <RouterProvider router={router}/>
+        <ContextProvider>
+            <RouterProvider router={router}/>
+        </ContextProvider>
     </React.StrictMode>
 );
 

@@ -1,3 +1,7 @@
+#guestlayout main {
+    background-color: rgba(68, 68, 68, 0.59);
+}
+
 /* Navbar */
 .navbar {
     margin-bottom: 0;
@@ -175,6 +179,40 @@
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
+}
+
+/* Login */
+.login-container,
+.register-container {
+    min-height: 100vh;
+    justify-content: center;
+    align-items: center;
+    margin: 0 1rem 0 1rem;
+}
+
+.login-card, .register-card {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+    padding: 1rem;
+    width: 400px;
+}
+
+.login-card input,
+.register-card input {
+    border-color: #6066FF;
+}
+
+.login-card h3,
+.register-card h3 {
+    border-color: #444444;
+    text-align: center;
+}
+
+.login-card button,
+.register-card button {
+    justify-content: center;
+    align-items: center;
+    margin: 0.5rem;
+    width: 310px;
 }
 
 /* Responsive */

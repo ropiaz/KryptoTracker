@@ -25,8 +25,12 @@ SECRET_KEY = "django-insecure-a4zq$-2z4f(b0zgz1n=yulywrr70o7zfdswf=b)jv91(%#)#7!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost']
 
+# White listing the localhost:3000 port for React
+CORS_ORIGIN_WHITELIST = [
+    'http://localhost:3000',
+]
 
 # Application definition
 
@@ -38,9 +42,16 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework.authtoken",
     "corsheaders",
     "kryptotracker",
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ]
+}
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

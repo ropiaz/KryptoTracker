@@ -1,4 +1,4 @@
-pip~=23.3
+pip~=23.3.1
 pytz~=2023.3.post1
 asgiref~=3.7.2
 sqlparse~=0.4.4

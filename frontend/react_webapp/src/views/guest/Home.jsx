@@ -1,14 +1,18 @@
 import React from 'react';
 import { useNavigate } from "react-router-dom";
+import useLogin from "../../hooks/useLogin";
 
 export default function Home(){
     const navigate = useNavigate();
+    const {
+        email,
+        setEmail,
+        password,
+        setPassword,
+        errorMessage,
+        handleLogin
+    } = useLogin();
 
-    // TODO: add login logic
-    const handleLoginSubmit = (ev) => {
-        ev.preventDefault();
-        alert("login function");
-    }
 
     // TODO: add onClick to /demo/dashboard in discover-button
     return (
@@ -28,13 +32,29 @@ export default function Home(){
                     </div>
                     {/* Login Container */}
                     <div className="login-form">
-                        <form onSubmit={handleLoginSubmit}>
+                        <form onSubmit={handleLogin} method="post">
                             <h2>Login</h2>
+                            { errorMessage &&
+                                <div className="alert alert-danger alert-dismissible fade show">
+                                    {errorMessage}
+                                    <span className="btn btn-sm btn-close" data-bs-dismiss="alert" aria-label="Close"></span>
+                                </div>
+                            }
                             <div className="form-group mb-3">
-                                <input type="email" className="form-control" placeholder="E-Mail" />
+                                <input type="email"
+                                       className="form-control"
+                                       placeholder="E-Mail"
+                                       value={email}
+                                       onChange={e => setEmail(e.target.value)}
+                                />
                             </div>
                             <div className="form-group mb-3">
-                                <input type="password" className="form-control" placeholder="Passwort" />
+                                <input type="password"
+                                       className="form-control"
+                                       placeholder="Passwort"
+                                       value={password}
+                                       onChange={e => setPassword(e.target.value)}
+                                />
                             </div>
                             <div className="form-group mb-2 text-center">
                                 <button type="submit" className="login-button">Login</button>
