@@ -1,6 +1,8 @@
 import React from 'react';
 import logo from '../../assets/Logo_KryptoTracker.png';
 import useLogin from "../../hooks/useLogin";
+import { Navigate } from "react-router-dom";
+import { useStateContext } from "../../contexts/ContextProvider";
 
 export default function Login() {
     const {
@@ -8,23 +10,29 @@ export default function Login() {
         setEmail,
         password,
         setPassword,
-        errorMessage,
+        errors,
         handleLogin
     } = useLogin();
+    const { token } = useStateContext();
+
+    if(token){
+        return <Navigate to="/dashboard" />
+    }
 
     return (
         <div className="login-container d-flex">
-            <div className="card login-card">
+            <div className="card login-card animated fadeInDown">
                 <div className="card-body">
                     <div className="mb-4">
                         <img src={logo} alt="KryptoTracker Logo" className="img-fluid mb-2" />
                         <h3>Login</h3>
-                        { errorMessage &&
-                            <div className="alert alert-danger alert-dismissible fade show">
-                                {errorMessage}
-                                <span className="btn btn-sm btn-close" data-bs-dismiss="alert" aria-label="Close"></span>
+                        {errors.length > 0 && (
+                            <div className="alert alert-danger">
+                                {errors.map((error, index) => (
+                                    <div key={index}>{error}</div>
+                                ))}
                             </div>
-                        }
+                        )}
                     </div>
                     <form onSubmit={handleLogin} method="post">
                         <div className="mb-3">

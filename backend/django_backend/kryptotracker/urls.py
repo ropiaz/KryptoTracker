@@ -7,11 +7,9 @@ from . import views
 
 # api routes
 urlpatterns = [
-    # path("login/", views.UserLoginAPIView.as_view(), name="user_login"),
-    # path("register/", views.UserRegisterAPIView().as_view(), name="user_register"),
-    # path("logout/", views.UserLogoutAPIView.as_view(), name="user_logout"),
-    path("login/", views.LoginAPIView.as_view(), name="user_login"),
-    # path("register/", views.register),
-    # path("logout/", views.register),
+    path("register/", views.UserRegisterAPI.as_view(), name="user_register"),
+    path("logout/", views.LogoutAPI.as_view(), name="user_logout"),
+    path("login/", views.LoginAPI.as_view(), name="user_login"),
+    path("user/", views.AuthUser.as_view(), name="user_auth"),
     # path("user/", include(router.urls)),
 ]
