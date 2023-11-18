@@ -38,24 +38,32 @@ export default function Register() {
             let newErrors = [];
 
             const payload = {
-                email: email,
-                username: username,
-                first_name: firstname,
-                last_name: lastname,
-                password: password,
-                passwordConfirmed: passwordConfirmed,
+                'email': email,
+                'username': username,
+                'first_name': firstname,
+                'last_name': lastname,
+                'password': password,
+                'passwordConfirmed': passwordConfirmed,
+            };
+
+            const fields = {
+                'email': 'E-Mail',
+                'username': 'Username',
+                'first_name': 'Vorname',
+                'last_name': 'Nachname',
+                'password': 'Passwort',
+                'passwordConfirmed': 'Passwort wiederholen'
             };
 
             // Check for empty fields
             for (const [key, value] of Object.entries(payload)) {
                 if (!value) {
-                    newErrors.push(`Das Feld ${key} darf nicht leer sein.`);
+                    newErrors.push(`Das Feld ${fields[key]} darf nicht leer sein.`);
                 }
             }
 
             if (password !== passwordConfirmed) {
                 newErrors.push('Passwörter stimmen nicht überein!');
-                return;
             }
 
             if (newErrors.length > 0) {
@@ -64,7 +72,7 @@ export default function Register() {
             }
 
             // request to backend
-            axios.post("http://localhost:8000/api/register/", payload, {
+            axios.post('http://localhost:8000/api/register/', payload, {
                 xsrfCookieName: 'csrftoken',
                 xsrfHeaderName: 'X-CSRFToken',
                 headers: {'Content-Type': 'application/json'}
@@ -77,29 +85,31 @@ export default function Register() {
                     setToken(token);
                     resetForm();
 
-                    setTimeout(() => {
-                        navigate(`/${userData.username}`);
-                    }, 1250);
+                    navigate(`/${userData.username}`);
                 })
                 .catch((error) => {
-                    for (const errorKey in error.response.data) {
-                        console.log(error.response.data[errorKey])
-                        if(error.response.data[errorKey][0] === "Dieses Feld darf nicht leer sein."){
-                            continue;
-                        }
-                        newErrors.push(error.response.data[errorKey]);
+                    if(error.response.status === 500) {
+                        setErrors(["Serverfehler bitte später erneut versuchen."]);
                     }
-                    setErrors(newErrors);
+
+                    if(error.response.status >= 400 && error.response.status < 500) {
+                        for (const errorKey in error.response.data) {
+                            if(error.response.data[errorKey][0] === "Dieses Feld darf nicht leer sein."){
+                                continue;
+                            }
+                            newErrors.push(error.response.data[errorKey]);
+                        }
+                        setErrors(newErrors);
+                    }
                 });
         } catch (err) {
-            console.log('Fehler beim Registrieren: ', err);
             setErrors(["Fehler beim Registrieren."]);
         }
     };
 
     return (
         <div className="register-container d-flex">
-            <div className="card register-card animated fadeInDown">
+            <div className="card register-card animated fadeInDown m-1">
                 <div className="card-body">
                     <div className="mb-4">
                         <img src={logo} alt="KryptoTracker Logo" className="img-fluid mb-2" />

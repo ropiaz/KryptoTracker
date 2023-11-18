@@ -1,6 +1,8 @@
+# Author: Roberto Piazza
+# Date: 18.11.2023
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from rest_framework.authtoken.models import Token
+from django.contrib.auth.hashers import make_password
 
 class UserSerializer(serializers.ModelSerializer):
     """Return User JSON Object. PW excluded."""
@@ -27,11 +29,10 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField()
     email = serializers.EmailField()
     password = serializers.CharField()
-    passwordConfirmed = serializers.CharField()
 
     class Meta:
         model = User
-        fields = ["username", "email", "first_name", "last_name", "password", "passwordConfirmed"]
+        fields = ["email", "username", "first_name", "last_name", "password"]
 
     def validate_username(self, username):
         if User.objects.filter(username=username).exists():
@@ -52,4 +53,4 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
         # TODO: define more rules for password
 
-        return password
+        return make_password(password)

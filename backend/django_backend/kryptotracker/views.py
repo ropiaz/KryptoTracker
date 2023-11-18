@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, login, logout
 # dependencies rest_framework
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.models import Token
@@ -8,7 +8,6 @@ from rest_framework import status, viewsets
 from rest_framework.views import APIView
 # dependencies serializers
 from .serializers import UserLoginSerializer, UserSerializer, UserRegisterSerializer
-from rest_framework.serializers import ValidationError
 
 
 class LogoutAPI(APIView):
@@ -23,7 +22,7 @@ class LogoutAPI(APIView):
                 token_obj = Token.objects.get(key=token)
                 # user = token_obj.user
                 token_obj.delete()
-
+                logout(request)
                 return Response({'detail': 'Logout erfolgreich.'}, status=status.HTTP_200_OK)
             except Token.DoesNotExist:
                 return Response({'detail': 'Ungültiges Token.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -51,7 +50,7 @@ class LoginAPI(APIView):
 
             if user is not None:
                 user_serializer = UserSerializer(user)
-
+                login(request, user)
                 token, created = Token.objects.get_or_create(user=user)
                 if not created:
                     token.delete()
@@ -80,8 +79,6 @@ class UserRegisterAPI(APIView):
                 return Response(data={'detail': 'Registrierung fehlgeschlagen. Bitte erneut versuchen.'},
                                 status=status.HTTP_406_NOT_ACCEPTABLE)
         return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        # raise ValidationError(
-        #     serializer.errors, code=status.HTTP_406_NOT_ACCEPTABLE)
 
 
 class AuthUser(APIView):

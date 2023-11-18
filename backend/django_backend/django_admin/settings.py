@@ -88,24 +88,24 @@ WSGI_APPLICATION = "django_admin.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
-
-# Docker DB
 # DATABASES = {
 #     "default": {
-#         "ENGINE": "django.db.backends.mysql",
-#         "NAME": "kryptotracker",
-#         "USER": "admin",
-#         "PASSWORD": "admin",
-#         "HOST": "kryptotracker_db",
-#         "PORT": "3306",
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
 #     }
 # }
+
+# Docker DB
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": "kryptotracker",
+        "HOST": "db",
+        "USER": "admin",
+        "PASSWORD": "admin",
+        "PORT": 3306,
+    }
+}
 
 
 # Password validation

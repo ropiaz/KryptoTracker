@@ -23,14 +23,19 @@ export default function useLogin(){
             let newErrors = [];
 
             const payload = {
-                email: email,
-                password: password,
+                'email': email,
+                'password': password,
+            };
+
+            const fields = {
+                'email': 'E-Mail',
+                'password': 'Passwort',
             };
 
             // Check for empty fields
             for (const [key, value] of Object.entries(payload)) {
                 if (!value) {
-                    newErrors.push(`Das Feld ${key} darf nicht leer sein.`);
+                    newErrors.push(`Das Feld ${fields[key]} darf nicht leer sein.`);
                 }
             }
 
@@ -52,19 +57,21 @@ export default function useLogin(){
                     setToken(token);
                     resetForm();
 
-                    setTimeout(() => {
-                        navigate(`/${userData.username}`);
-                    }, 1250);
+                    navigate(`/${userData.username}`);
                 })
                 .catch((error) => {
-                    for (const errorKey in error.response.data) {
-                        console.log(error.response.data[errorKey])
-                        newErrors.push(error.response.data[errorKey]);
+                    if(error.response.status === 500) {
+                        setErrors(["Serverfehler bitte später erneut versuchen."]);
                     }
-                    setErrors(newErrors);
+
+                    if(error.response.status >= 400 && error.response.status < 500) {
+                        for (const errorKey in error.response.data) {
+                            newErrors.push(error.response.data[errorKey]);
+                        }
+                        setErrors(newErrors);
+                    }
                 });
         } catch (err) {
-            console.log('Fehler beim Login: ', err);
             setErrors(["Fehler beim Login."]);
         }
     };
