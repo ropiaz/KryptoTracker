@@ -1,11 +1,63 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import { useNavigate, Link } from "react-router-dom";
+import {useStateContext} from "../contexts/ContextProvider";
+import axios from "axios";
 
 export default function Header(){
     const navigate = useNavigate();
+    const { setToken, token, setNotification } = useStateContext();
+    const [userData, setUserData] = useState(null);
+
+    useEffect( () => {
+        if (token) {
+            axios.get('http://localhost:8000/api/user/', {
+                headers: {
+                    'Authorization': `Token ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then((response) => {
+                    if(response.status === 200){
+                        setUserData(response.data.detail);
+                    }
+                })
+                .catch((error) => {
+                    setToken(null);
+                    setUserData(null);
+                });
+        }
+    }, [token]);
+
+    const onLogout = async (ev) => {
+        ev.preventDefault();
+        try {
+            axios.post('http://localhost:8000/api/logout/', {}, {
+                xsrfCookieName: 'csrftoken',
+                xsrfHeaderName: 'X-CSRFToken',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Token ${token}`
+                }
+            })
+                .then((res) => {
+                    setNotification('Logout erfolgreich! Weiterleitung...');
+                    setToken(null);
+                    setUserData(null);
+                    navigate('/');
+                })
+                .catch((error) => {
+                    setToken(null);
+                    setUserData(null);
+                    navigate('/');
+                });
+        } catch (error) {
+            setToken(null);
+            setUserData(null);
+            navigate('/');
+        }
+    }
 
     // TODO: edit "to" to all Link tags
-    // TODO: adjust Header if user is authenticated => remove Login, Register Buttons
     return (
         <nav className="navbar navbar-expand-lg bg-body-tertiary">
             <div className="container-fluid">
@@ -14,7 +66,7 @@ export default function Header(){
                     <span className="navbar-toggler-icon"></span>
                 </button>
                 <div className="collapse navbar-collapse justify-content-center" id="navbarSupportedContent">
-                    <ul className="navbar-nav mb-2 mb-lg-0">
+                    <ul className="navbar-nav mb-2 mb-lg-0 ms-auto">
                         <li className="nav-item">
                             <Link className="nav-link" to="/">Home</Link>
                         </li>
@@ -25,7 +77,7 @@ export default function Header(){
                             <Link className="nav-link" to='/'>Steuerbericht</Link>
                         </li>
                         <li className="nav-item dropdown">
-                            <Link className="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <Link to="#" className="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 Transaktionen und Staking
                             </Link>
                             <ul className="dropdown-menu">
@@ -37,7 +89,7 @@ export default function Header(){
                             </ul>
                         </li>
                         <li className="nav-item dropdown">
-                            <Link className="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <Link to="#" className="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 Wissen
                             </Link>
                             <ul className="dropdown-menu">
@@ -48,20 +100,32 @@ export default function Header(){
                             </ul>
                         </li>
                     </ul>
-                    <div className="d-flex">
-                        <button type="button"
-                                className="login-button me-2"
-                                onClick={(ev) => {navigate('/login')}}
-                        >
-                            Login
-                        </button>
-                        <button type="button"
-                                className="register-button"
-                                onClick={(ev) => {navigate('/register')}}
-                        >
-                            Registrieren
-                        </button>
-                    </div>
+                    {userData?.username
+                        ?
+                        <>
+                            <div className="d-flex ms-auto">
+                                <span className="me-2 navbar-text">Hallo, {userData.username}</span>
+                                <Link to="#" onClick={onLogout} className="btn btn-danger">Logout</Link>
+                            </div>
+                        </>
+                        :
+                        <>
+                            <div className="d-flex ms-auto">
+                                <button type="button"
+                                        className="login-button me-2"
+                                        onClick={(ev) => {navigate('/login')}}
+                                >
+                                    Login
+                                </button>
+                                <button type="button"
+                                        className="register-button"
+                                        onClick={(ev) => {navigate('/register')}}
+                                >
+                                    Registrieren
+                                </button>
+                            </div>
+                        </>
+                    }
                 </div>
             </div>
         </nav>

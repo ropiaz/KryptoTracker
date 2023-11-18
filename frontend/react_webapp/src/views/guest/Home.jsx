@@ -1,14 +1,20 @@
 import React from 'react';
 import { useNavigate } from "react-router-dom";
+import useLogin from "../../hooks/useLogin";
+import { useStateContext } from "../../contexts/ContextProvider";
 
 export default function Home(){
     const navigate = useNavigate();
+    const {
+        email,
+        setEmail,
+        password,
+        setPassword,
+        errors,
+        handleLogin
+    } = useLogin();
 
-    // TODO: add login logic
-    const handleLoginSubmit = (ev) => {
-        ev.preventDefault();
-        alert("login function");
-    }
+    const { token } = useStateContext();
 
     // TODO: add onClick to /demo/dashboard in discover-button
     return (
@@ -20,38 +26,59 @@ export default function Home(){
                         <h1>KryptoTracker</h1>
                         <p>Ihr Begleiter im Krypto-Universum!</p>
                         <p>Mit KryptoTracker behalten Sie mühelos den Überblick über Ihre Kryptowährungen. Verfolgen Sie sämtliche Transaktionen, werten Sie Ihre Gewinne aus und generieren Sie unkompliziert Steuerberichte. Profitieren Sie von unserer spezialisierten Steuerhilfe und bleiben Sie stets bestens informiert. Optimieren Sie Ihr Krypto-Erlebnis mit KryptoTracker!</p>
-                        <button type="button"
-                                className="discover-button"
-                        >
-                            Entdecke die Livedemo
-                        </button>
+                        {!token &&
+                            <button type="button"
+                                    className="discover-button"
+                            >
+                                Entdecke die Livedemo
+                            </button>
+                        }
                     </div>
-                    {/* Login Container */}
-                    <div className="login-form">
-                        <form onSubmit={handleLoginSubmit}>
-                            <h2>Login</h2>
-                            <div className="form-group mb-3">
-                                <input type="email" className="form-control" placeholder="E-Mail" />
-                            </div>
-                            <div className="form-group mb-3">
-                                <input type="password" className="form-control" placeholder="Passwort" />
-                            </div>
-                            <div className="form-group mb-2 text-center">
-                                <button type="submit" className="login-button">Login</button>
-                            </div>
-                            <div className="form-group mb-2 text-center">
-                                <span>Oder</span>
-                            </div>
-                            <div className="form-group text-center">
-                                <button type="button"
-                                        className="register-button"
-                                        onClick={(ev) => navigate('/register')}
-                                >
-                                    Registrieren
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                    {!token &&
+                         // Login Container
+                        <div className="login-form">
+                            <form onSubmit={handleLogin} method="post">
+                                <h2>Login</h2>
+                                {errors.length > 0 && (
+                                    <div className="alert alert-danger">
+                                        {errors.map((error, index) => (
+                                            <div key={index}>{error}</div>
+                                        ))}
+                                    </div>
+                                )}
+                                <div className="form-group mb-3">
+                                    <input type="email"
+                                           className="form-control"
+                                           placeholder="E-Mail"
+                                           value={email}
+                                           onChange={e => setEmail(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group mb-3">
+                                    <input type="password"
+                                           className="form-control"
+                                           placeholder="Passwort"
+                                           value={password}
+                                           onChange={e => setPassword(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group mb-2 text-center">
+                                    <button type="submit" className="login-button">Login</button>
+                                </div>
+                                <div className="form-group mb-2 text-center">
+                                    <span>Oder</span>
+                                </div>
+                                <div className="form-group text-center">
+                                    <button type="button"
+                                            className="register-button"
+                                            onClick={(ev) => navigate('/register')}
+                                    >
+                                        Registrieren
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    }
                 </div>
             </div>
             {/* Service Section */}

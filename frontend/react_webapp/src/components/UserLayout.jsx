@@ -1,13 +1,17 @@
-import { Outlet } from "react-router-dom";
-import Header from "./Header";
-import Footer from "./Footer";
+import React from "react";
+import { Navigate, Outlet } from "react-router-dom";
 import { useStateContext } from "../contexts/ContextProvider";
+import Footer from "./Footer";
+import Header from "./Header";
 
-export default function GuestLayout(){
-    const { notification } = useStateContext();
+export default function UserLayout(){
+    const { token, notification } = useStateContext();
+    if(!token){
+        return <Navigate to="/" />
+    }
 
     return (
-        <div id="guestlayout">
+        <div id="userlayout">
             <Header />
             <main>
                 <Outlet />
