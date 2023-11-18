@@ -63,13 +63,13 @@ jobs:
           sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
       - name: Change executable rights from entrypoint script
-        run: sudo chmod +x /${{ github.workspace }}/backend/entrypoint.sh
+        run: sudo chmod +x ${{ github.workspace }}/backend/entrypoint.sh
       - name: Build and Test Docker Image
         run: |
           docker version
           docker-compose build
           docker-compose up -d
-          docker-compose exec backend python backend/django_backend/manage.py makemigrations
-          docker-compose exec backend python backend/django_backend/manage.py migrate
-          docker-compose exec backend python backend/django_backend/manage.py test
+          docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py makemigrations
+          docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py migrate
+          docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py test
           docker-compose down -v
