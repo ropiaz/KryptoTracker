@@ -1,4 +1,39 @@
-name: Django CI with Docker
+#name: Django CI
+#
+#on:
+#  push:
+#    branches: [ "*" ]
+#  pull_request:
+#    branches: [ "main" ]
+#
+#jobs:
+#  build:
+#
+#    runs-on: ubuntu-latest
+#    strategy:
+#      max-parallel: 4
+#      matrix:
+#        python-version: [3.9, 3.11]
+#
+#    steps:
+#    - uses: actions/checkout@v3
+#    - name: Set up Python ${{ matrix.python-version }}
+#      uses: actions/setup-python@v3
+#      with:
+#        python-version: ${{ matrix.python-version }}
+#    - name: Install Dependencies
+#      run: |
+#        python -m pip install --upgrade pip
+#        pip install -r backend/requirements.txt
+#    - name: Run Build
+#      run: |
+#        python backend/django_backend/manage.py makemigrations
+#        python backend/django_backend/manage.py migrate
+#    - name: Run Tests
+#      run: |
+#        python backend/django_backend/manage.py test
+
+name: Django CI
 
 on:
   push:
@@ -8,11 +43,12 @@ on:
 
 jobs:
   build:
+
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 4
       matrix:
-        python-version: [ 3.11 ]
+        python-version: [3.11]
 
     steps:
       - uses: actions/checkout@v3
@@ -25,20 +61,29 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install Docker Compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+
+      - name: Change executable rights from entrypoint script
+        run: sudo chmod +x ${{ github.workspace }}/backend/entrypoint.sh
+
       - name: Build Docker Image
-        run: docker build -t django-backend-image ./backend
+        run: |
+          docker version
+          docker-compose build
+          docker-compose up -d
 
-      - name: Run Docker Container
-        run: docker run -d --name django-backend-container django-backend-image
+#      - name: Make Django Migrations
+#        run: docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py makemigrations
 
-      - name: Run Migrations in Container
-        run: docker exec django-backend-container python /app/backend/django_backend/manage.py makemigrations
+#      - name: Migrate Django
+#        run: docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py migrate
 
-      - name: Apply Migrations in Container
-        run: docker exec django-backend-container python /app/backend/django_backend/manage.py migrate
+      - name: Test Django
+        run: docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py test
 
-      - name: Run Tests in Container
-        run: docker exec django-backend-container python /app/backend/django_backend/manage.py test
+      - name: Shutdown Docker
+        run: docker-compose down -v
 
-      - name: Clean up
-        run: docker rm -f django-backend-container
