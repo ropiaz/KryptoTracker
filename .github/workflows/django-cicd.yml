@@ -64,12 +64,15 @@ jobs:
           sudo chmod +x /usr/local/bin/docker-compose
       - name: Change executable rights from entrypoint script
         run: sudo chmod +x ${{ github.workspace }}/backend/entrypoint.sh
-      - name: Build and Test Docker Image
+      - name: Build Docker Image
         run: |
           docker version
-          docker-compose build
           docker-compose up -d
-          docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py makemigrations
-          docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py migrate
-          docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py test
-          docker-compose down -v
+      - name: Make Django Migrations
+        run: docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py makemigrations
+      - name: Migrate Django
+        run: docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py migrate
+      - name: Test Django
+        run: docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py test
+      - name: Shutdown Docker
+        run: docker-compose down -v
