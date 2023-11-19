@@ -6,6 +6,7 @@ import Home from "./views/guest/Home";
 import Login from "./views/guest/Login";
 import Register from "./views/guest/Register";
 import Dashboard from "./views/user/Dashboard";
+import Settings from "./views/user/Settings";
 
 const router = createBrowserRouter([
     {
@@ -33,6 +34,10 @@ const router = createBrowserRouter([
             {
                 path: '/:username',
                 element: <Dashboard />
+            },
+            {
+                path: '/:username/settings',
+                element: <Settings />
             },
         ]
     },
