@@ -9,7 +9,7 @@ const useAuthUserToken = (token) => {
 
     useEffect(() => {
         if (token) {
-            axios.get('http://localhost:8000/api/user/', {
+            axios.get('http://localhost:8000/api/user-auth/', {
                 headers: {
                     'Authorization': `Token ${token}`,
                     'Content-Type': 'application/json'

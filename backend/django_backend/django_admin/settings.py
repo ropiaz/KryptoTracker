@@ -101,8 +101,8 @@ DATABASES = {
         "ENGINE": "django.db.backends.mysql",
         "NAME": "kryptotracker",
         "HOST": "db",
-        "USER": "admin",
-        "PASSWORD": "admin",
+        "USER": "root",
+        "PASSWORD": "admin123!",
         "PORT": 3306,
     }
 }

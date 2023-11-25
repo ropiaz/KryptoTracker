@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from "react-router-dom";
-import useLogin from "../../hooks/useLogin";
+import useLogin from "../../utils/useLogin";
 import { useStateContext } from "../../contexts/ContextProvider";
 
 export default function Home(){

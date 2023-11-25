@@ -98,3 +98,11 @@ class AuthUser(APIView):
                 return Response({'detail': 'Ungültiges Token.'}, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response({'detail': 'Kein Token vorhanden.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EditUser(APIView):
+    authentication_classes = [TokenAuthentication]
+
+    def put(self, request, *args, **kargs):
+        print(request.data)
+        return Response(data={'detail': "ok"}, status=status.HTTP_200_OK)

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate, Link } from "react-router-dom";
 import { useStateContext } from "../contexts/ContextProvider";
-import useAuthUserToken from "../hooks/useAuthUserToken";
+import useAuthUserToken from "../utils/useAuthUserToken";
 import axios from "axios";
 
 export default function Header(){
