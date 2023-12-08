@@ -54,3 +54,14 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         # TODO: define more rules for password
 
         return make_password(password)
+
+class UserEditSerializer(serializers.ModelSerializer):
+    username = serializers.CharField()
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    email = serializers.EmailField()
+    password = serializers.CharField()
+
+    class Meta:
+        model = User
+        fields = ["email", "username", "first_name", "last_name", "password"]

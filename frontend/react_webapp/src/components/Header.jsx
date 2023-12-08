@@ -9,10 +9,12 @@ export default function Header(){
     const { setToken, token, setNotification } = useStateContext();
     const { userData, setUserData } = useAuthUserToken(token);
 
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api`;
+
     const onLogout = async (ev) => {
         ev.preventDefault();
         try {
-            axios.post('http://localhost:8000/api/logout/', {}, {
+            axios.post(`${apiUrl}/logout/`, {}, {
                 xsrfCookieName: 'csrftoken',
                 xsrfHeaderName: 'X-CSRFToken',
                 headers: {

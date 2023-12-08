@@ -1,252 +1,252 @@
 #guestlayout main {
-    background-color: rgba(68, 68, 68, 0.59);
+  background-color: rgba(68, 68, 68, 0.59);
 }
 
 /* Navbar */
 .navbar {
-    margin-bottom: 0;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  margin-bottom: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .navbar-brand {
-    margin-left: 1rem;
+  margin-left: 1rem;
 }
 
 .nav-item {
-    margin-right: 2rem;
+  margin-right: 2rem;
 }
 
 .login-button,
 .register-button {
-    padding: 0.25rem 1rem;
-    border: none;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    border-radius: 20px;
-    width: 120px;
+  padding: 0.25rem 1rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  border-radius: 20px;
+  width: 120px;
 }
 
 .login-button {
-    background-color: #4859F0;
-    color: #fff;
+  background-color: #4859F0;
+  color: #fff;
 }
 
 .register-button {
-    background-color: #F31C1C;
-    color: #fff;
+  background-color: #F31C1C;
+  color: #fff;
 }
 
 .login-button:hover {
-    background-color: #3847bb;
+  background-color: #3847bb;
 }
 
 .register-button:hover {
-    background-color: #b41313;
+  background-color: #b41313;
 }
 
 /* Footer */
 .footer {
-    background-color: #0D2558;
+  background-color: #0D2558;
 }
 
 .footer ul li {
-    color: #FFFFFF;
-    margin-bottom: 0.5rem;
+  color: #FFFFFF;
+  margin-bottom: 0.5rem;
 }
 
 .footer ul li:hover {
-    color: #0089FA;
+  color: #0089FA;
 }
 
 .footer h5 {
-    color: #0089FA;
+  color: #0089FA;
 }
 
 /* Home */
 .homepage {
-    justify-content: center;
-    align-items: center;
-    margin: 0;
-    padding: 0;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  padding: 0;
 }
 
 .banner-image {
-    margin-top: 0;
-    background-image: url('./assets/banner.png');
-    background-size: cover;
-    background-position: center;
-    width: 100%;
-    height: 50vmin;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  margin-top: 0;
+  background-image: url('./assets/banner.png');
+  background-size: cover;
+  background-position: center;
+  width: 100%;
+  height: 50vmin;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .banner-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 80%; /* Breite des Inhalts */
-    max-width: 1200px; /* Maximale Breite des Inhalts */
-    margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 80%; /* Breite des Inhalts */
+  max-width: 1200px; /* Maximale Breite des Inhalts */
+  margin: 0 auto;
 }
 
 .banner-text {
-    flex: 1;
-    color: #FFFFFF;
-    margin-right: 2rem;
+  flex: 1;
+  color: #FFFFFF;
+  margin-right: 2rem;
 }
 
 .login-form {
-    background: rgba(255, 255, 255, 0.35);
-    flex: 0.5;
-    display: flex;
-    flex-direction: column;
-    border-radius: 10px;
-    padding: 1rem;
+  background: rgba(255, 255, 255, 0.35);
+  flex: 0.5;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  padding: 1rem;
 }
 
 .login-form h2 {
-    color: #FFFFFF;
-    text-align: center;
+  color: #FFFFFF;
+  text-align: center;
 }
 
 .login-form span {
-    color: #FFFFFF;
+  color: #FFFFFF;
 }
 
 .discover-button {
-    background-color: #00A86B;
-    color: #FFFFFF;
-    padding: 0.5rem 1.5rem;
-    border: none;
-    border-radius: 20px;
-    cursor: pointer;
-    margin-top: 1rem;
+  background-color: #00A86B;
+  color: #FFFFFF;
+  padding: 0.5rem 1.5rem;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  margin-top: 1rem;
 }
 
 .discover-button:hover {
-    background-color: #008058;
+  background-color: #008058;
 }
 
 .service-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
 }
 
 .service {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    background-color: #DDDDDD;
-    padding: 1rem;
-    border-radius: 10px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background-color: #DDDDDD;
+  padding: 1rem;
+  border-radius: 10px;
 }
 
 .service:nth-child(even) {
-    background-color: #FFFFFF;
+  background-color: #FFFFFF;
 }
 
 .service-description {
-    flex: 1;
+  flex: 1;
 }
 
 .service-description h2 {
-    color: #0089FA;
+  color: #0089FA;
 }
 
 #service-image1 {
-    background-image: url('./assets/portfolio.png');
+  background-image: url('./assets/portfolio.png');
 }
 
 #service-image2 {
-    background-image: url('./assets/tracking.png');
+  background-image: url('./assets/tracking.png');
 }
 
 #service-image3 {
-    background-image: url('./assets/steuer.png');
+  background-image: url('./assets/steuer.png');
 }
 
 #service-image4 {
-    background-image: url('./assets/bitcoin.png');
+  background-image: url('./assets/bitcoin.png');
 }
 
 [id^="service-image"] {
-    flex: 1;
-    height: 250px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
+  flex: 1;
+  height: 250px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
 /* Login */
 .login-container,
 .register-container {
-    min-height: 100vh;
-    justify-content: center;
-    align-items: center;
-    margin: 0 1rem 0 1rem;
+  min-height: 100vh;
+  justify-content: center;
+  align-items: center;
+  margin: 0 1rem 0 1rem;
 }
 
 .login-card, .register-card {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
-    padding: 1rem;
-    width: 400px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  padding: 1rem;
+  width: 400px;
 }
 
 .login-card input,
 .register-card input {
-    border-color: #6066FF;
+  border-color: #6066FF;
 }
 
 .login-card h3,
 .register-card h3 {
-    border-color: #444444;
-    text-align: center;
+  border-color: #444444;
+  text-align: center;
 }
 
 .login-card button,
 .register-card button {
-    justify-content: center;
-    align-items: center;
-    margin: 0.5rem;
-    width: 310px;
+  justify-content: center;
+  align-items: center;
+  margin: 0.5rem;
+  width: 310px;
 }
 
 .animated {
-    -webkit-animation-duration: 0.3s;
-    animation-duration: 0.3s;
-    -webkit-animation-fill-mode: both;
-    animation-fill-mode: both;
+  -webkit-animation-duration: 0.3s;
+  animation-duration: 0.3s;
+  -webkit-animation-fill-mode: both;
+  animation-fill-mode: both;
 }
 
 .fadeInDown {
-    -webkit-animation-name: fadeInDown;
-    animation-name: fadeInDown;
+  -webkit-animation-name: fadeInDown;
+  animation-name: fadeInDown;
 }
 
 @keyframes fadeInDown {
-    0% {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0);
-    }
+  0% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .notification {
-    position: fixed;
-    right: 1rem;
-    bottom: 1rem;
-    z-index: 100;
-    padding: 1rem 1.5rem;
-    background-color: #00a762;
-    color: white;
-    border-radius: 0.5rem;
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 100;
+  padding: 1rem 1.5rem;
+  background-color: #00a762;
+  color: white;
+  border-radius: 0.5rem;
 }
 
 /*.notification {*/
@@ -269,35 +269,35 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-    /* Home */
-    .banner-image {
-        height: 800px;
-    }
+  /* Home */
+  .banner-image {
+    height: 800px;
+  }
 
-    .banner-content {
-        flex-direction: column;
-        text-align: center;
-    }
+  .banner-content {
+    flex-direction: column;
+    text-align: center;
+  }
 
-    .banner-text,
-    .login-form {
-        flex: none;
-        width: 100%;
-    }
+  .banner-text,
+  .login-form {
+    flex: none;
+    width: 100%;
+  }
 
-    .banner-text {
-        margin-bottom: 2rem;
-    }
+  .banner-text {
+    margin-bottom: 2rem;
+  }
 
-    .service {
-        flex-direction: column;
-    }
+  .service {
+    flex-direction: column;
+  }
 
-    [id^="service-image"] {
-        flex: none;
-        width: 100%;
-        order: 1;
-    }
+  [id^="service-image"] {
+    flex: none;
+    width: 100%;
+    order: 1;
+  }
 }
 
 /* UserLayout */
@@ -307,9 +307,9 @@
 #userlayout p,
 #userlayout span
 {
-    color: #444444
+  color: #444444
 }
 
 .required-text {
-    color: #C20000;
+  color: #C20000;
 }

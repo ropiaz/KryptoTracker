@@ -17,6 +17,8 @@ export default function Register() {
         passwordConfirmed: '',
     });
 
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api`;
+
     const { token } = useStateContext();
 
     if(token){
@@ -55,7 +57,7 @@ export default function Register() {
             }
 
             // request to backend
-            axios.post('http://localhost:8000/api/register/', user, {
+            axios.post(`${apiUrl}/register/`, user, {
                 xsrfCookieName: 'csrftoken',
                 xsrfHeaderName: 'X-CSRFToken',
                 headers: {'Content-Type': 'application/json'}

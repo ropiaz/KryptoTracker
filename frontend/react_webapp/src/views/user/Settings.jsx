@@ -17,6 +17,8 @@ export default function Settings(){
         passwordConfirmed: '',
     });
 
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api`;
+
     useEffect(() => {
         if (userData) {
             setUser({
@@ -32,7 +34,7 @@ export default function Settings(){
 
     const [errors, setErrors] = useState([]);
 
-    const handleEdit = async (event) => {
+    const handleEdit = (event) => {
         event.preventDefault();
 
         try {

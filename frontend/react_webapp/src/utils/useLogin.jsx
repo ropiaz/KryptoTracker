@@ -10,6 +10,8 @@ export default function useLogin(){
     const [password, setPassword] = useState('');
     const [errors, setErrors] = useState([]);
 
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api`;
+
     const resetForm = () => {
         setEmail('');
         setPassword('');
@@ -44,7 +46,7 @@ export default function useLogin(){
                 return;
             }
 
-            axios.post('http://localhost:8000/api/login/', payload, {
+            axios.post(`${apiUrl}/login/`, payload, {
                 xsrfCookieName: 'csrftoken',
                 xsrfHeaderName: 'X-CSRFToken',
                 headers: {'Content-Type': 'application/json'}

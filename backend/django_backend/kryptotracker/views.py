@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework import status, viewsets
 from rest_framework.views import APIView
 # dependencies serializers
-from .serializers import UserLoginSerializer, UserSerializer, UserRegisterSerializer
+from .serializers import UserLoginSerializer, UserSerializer, UserRegisterSerializer, UserEditSerializer
 
 
 class LogoutAPI(APIView):
@@ -104,5 +104,7 @@ class EditUser(APIView):
     authentication_classes = [TokenAuthentication]
 
     def put(self, request, *args, **kargs):
-        print(request.data)
+        if request.data["password"]:
+            print(request.data["password"])
+            user_serializer = UserEditSerializer(request.data)
         return Response(data={'detail': "ok"}, status=status.HTTP_200_OK)

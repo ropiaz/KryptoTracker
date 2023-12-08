@@ -6,10 +6,11 @@ import axios from "axios";
 const useAuthUserToken = (token) => {
     const [userData, setUserData] = useState(null);
     const { setToken} = useStateContext();
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
     useEffect(() => {
         if (token) {
-            axios.get('http://localhost:8000/api/user-auth/', {
+            axios.get(`${apiUrl}/user-auth/`, {
                 headers: {
                     'Authorization': `Token ${token}`,
                     'Content-Type': 'application/json'
