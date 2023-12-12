@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework import status, viewsets
 from rest_framework.views import APIView
 # dependencies serializers
-from .serializers import UserLoginSerializer, UserSerializer, UserRegisterSerializer
+from .serializers import UserLoginSerializer, UserSerializer, UserRegisterSerializer, UserEditSerializer
 
 
 class LogoutAPI(APIView):
@@ -85,7 +85,7 @@ class AuthUser(APIView):
     """Handle User Auth with Token. Check if user is authenticated and token is in database. Return user data with
     status code. Otherwise return error messages."""
 
-    def get(self, request, *args, **kargs):
+    def get(self, request):
         token = request.auth
         if token is not None:
             try:
@@ -98,3 +98,22 @@ class AuthUser(APIView):
                 return Response({'detail': 'Ungültiges Token.'}, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response({'detail': 'Kein Token vorhanden.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class EditUser(APIView):
+    """Handle User Edit with Token. Check if user is authenticated and token is in database. Validate new user data and
+        Return user with updated data with and status code. Otherwise return error messages."""
+    authentication_classes = [TokenAuthentication]
+
+    def put(self, request, token):
+        try:
+            token_obj = Token.objects.get(key=token)
+            user = token_obj.user
+            if user is not None:
+                user_serializer = UserEditSerializer(user, data=request.data)
+                if user_serializer.is_valid():
+                    user_serializer.save()
+                    return Response(data={'detail': user_serializer.data}, status=status.HTTP_200_OK)
+                return Response(data=user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Token.DoesNotExist:
+            return Response({'detail': 'Ungültiges Token.'}, status=status.HTTP_400_BAD_REQUEST)

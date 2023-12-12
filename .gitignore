@@ -2,12 +2,14 @@
 **/__pycache__
 
 # ignore backend resources
+.env
 backend/venv
 backend/db_data
 backend/django_backend/db.sqlite3
 
 # ignore frontend resources
 frontend/react_webapp/.git
+frontend/react_webapp/.env
 frontend/react_webapp/node_modules
 frontend/react_webapp/yarn.lock
 frontend/react_webapp/.pnp

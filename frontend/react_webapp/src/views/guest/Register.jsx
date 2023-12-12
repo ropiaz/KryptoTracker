@@ -7,13 +7,17 @@ import logo from '../../assets/Logo_KryptoTracker.png';
 export default function Register() {
     const navigate = useNavigate();
     const {setToken, setNotification} = useStateContext();
-    const [username, setUsername] = useState('');
-    const [email, setEmail] = useState('');
-    const [firstname, setFirstname] = useState('');
-    const [lastname, setLastname] = useState('');
-    const [password, setPassword] = useState('');
-    const [passwordConfirmed, setPasswordConfirmed] = useState('');
     const [errors, setErrors] = useState([]);
+    const [user, setUser] = useState({
+        first_name: '',
+        last_name: '',
+        username: '',
+        email: '',
+        password: '',
+        passwordConfirmed: '',
+    });
+
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
     const { token } = useStateContext();
 
@@ -21,30 +25,11 @@ export default function Register() {
         return <Navigate to="/dashboard" />
     }
 
-    const resetForm = () => {
-        setUsername('');
-        setEmail('');
-        setFirstname('');
-        setLastname('');
-        setPassword('');
-        setPasswordConfirmed('');
-        setErrors([]);
-    };
-
     const handleRegister = async (event) => {
         event.preventDefault();
 
         try {
             let newErrors = [];
-
-            const payload = {
-                'email': email,
-                'username': username,
-                'first_name': firstname,
-                'last_name': lastname,
-                'password': password,
-                'passwordConfirmed': passwordConfirmed,
-            };
 
             const fields = {
                 'email': 'E-Mail',
@@ -56,13 +41,13 @@ export default function Register() {
             };
 
             // Check for empty fields
-            for (const [key, value] of Object.entries(payload)) {
+            for (const [key, value] of Object.entries(user)) {
                 if (!value) {
                     newErrors.push(`Das Feld ${fields[key]} darf nicht leer sein.`);
                 }
             }
 
-            if (password !== passwordConfirmed) {
+            if (user.password !== user.passwordConfirmed) {
                 newErrors.push('Passwörter stimmen nicht überein!');
             }
 
@@ -72,7 +57,7 @@ export default function Register() {
             }
 
             // request to backend
-            axios.post('http://localhost:8000/api/register/', payload, {
+            axios.post(`${apiUrl}/register/`, user, {
                 xsrfCookieName: 'csrftoken',
                 xsrfHeaderName: 'X-CSRFToken',
                 headers: {'Content-Type': 'application/json'}
@@ -83,7 +68,8 @@ export default function Register() {
                     const token = res.data.token;
 
                     setToken(token);
-                    resetForm();
+                    setUser(null);
+                    setErrors([]);
 
                     navigate(`/${userData.username}`);
                 })
@@ -129,8 +115,8 @@ export default function Register() {
                                 className="form-control"
                                 id="username"
                                 placeholder="Username"
-                                value={username}
-                                onChange={e => setUsername(e.target.value)}
+                                value={user.username}
+                                onChange={e => setUser({...user, username: e.target.value})}
                             />
                         </div>
                         <div className="mb-3">
@@ -139,8 +125,8 @@ export default function Register() {
                                 className="form-control"
                                 id="email"
                                 placeholder="E-Mail"
-                                value={email}
-                                onChange={e => setEmail(e.target.value)}
+                                value={user.email}
+                                onChange={e => setUser({...user, email: e.target.value})}
                             />
                         </div>
                         <div className="mb-3">
@@ -149,8 +135,8 @@ export default function Register() {
                                 className="form-control"
                                 id="firstname"
                                 placeholder="Vorname"
-                                value={firstname}
-                                onChange={e => setFirstname(e.target.value)}
+                                value={user.first_name}
+                                onChange={e => setUser({...user, first_name: e.target.value})}
                             />
                         </div>
                         <div className="mb-3">
@@ -159,8 +145,8 @@ export default function Register() {
                                 className="form-control"
                                 id="lastname"
                                 placeholder="Nachname"
-                                value={lastname}
-                                onChange={e => setLastname(e.target.value)}
+                                value={user.last_name}
+                                onChange={e => setUser({...user, last_name: e.target.value})}
                             />
                         </div>
                         <div className="mb-3">
@@ -169,8 +155,8 @@ export default function Register() {
                                 className="form-control"
                                 id="password"
                                 placeholder="Passwort"
-                                value={password}
-                                onChange={e => setPassword(e.target.value)}
+                                value={user.password}
+                                onChange={e => setUser({...user, password: e.target.value})}
                             />
                         </div>
                         <div className="mb-3">
@@ -179,8 +165,8 @@ export default function Register() {
                                 className="form-control"
                                 id="passwordConfirmed"
                                 placeholder="Passwort wiederholen"
-                                value={passwordConfirmed}
-                                onChange={e => setPasswordConfirmed(e.target.value)}
+                                value={user.passwordConfirmed}
+                                onChange={e => setUser({...user, passwordConfirmed: e.target.value})}
                             />
                         </div>
                         <div className="d-grid justify-content-center mt-3">

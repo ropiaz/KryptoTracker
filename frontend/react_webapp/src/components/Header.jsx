@@ -1,37 +1,20 @@
-import React, {useEffect, useState} from 'react';
+import React from 'react';
 import { useNavigate, Link } from "react-router-dom";
-import {useStateContext} from "../contexts/ContextProvider";
+import { useStateContext } from "../contexts/ContextProvider";
+import useAuthUserToken from "../utils/useAuthUserToken";
 import axios from "axios";
 
 export default function Header(){
     const navigate = useNavigate();
     const { setToken, token, setNotification } = useStateContext();
-    const [userData, setUserData] = useState(null);
+    const { userData, setUserData } = useAuthUserToken(token);
 
-    useEffect( () => {
-        if (token) {
-            axios.get('http://localhost:8000/api/user/', {
-                headers: {
-                    'Authorization': `Token ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            })
-                .then((response) => {
-                    if(response.status === 200){
-                        setUserData(response.data.detail);
-                    }
-                })
-                .catch((error) => {
-                    setToken(null);
-                    setUserData(null);
-                });
-        }
-    }, [token]);
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
     const onLogout = async (ev) => {
         ev.preventDefault();
         try {
-            axios.post('http://localhost:8000/api/logout/', {}, {
+            axios.post(`${apiUrl}/logout/`, {}, {
                 xsrfCookieName: 'csrftoken',
                 xsrfHeaderName: 'X-CSRFToken',
                 headers: {
@@ -71,7 +54,7 @@ export default function Header(){
                             <Link className="nav-link" to="/">Home</Link>
                         </li>
                         <li className="nav-item">
-                            <Link className="nav-link" to='/'>Dashboard</Link>
+                            <Link className="nav-link" to={userData?.username ? `/${userData.username}` : '/'}>Dashboard</Link>
                         </li>
                         <li className="nav-item">
                             <Link className="nav-link" to='/'>Steuerbericht</Link>
@@ -104,8 +87,16 @@ export default function Header(){
                         ?
                         <>
                             <div className="d-flex ms-auto">
-                                <span className="me-2 navbar-text">Hallo, {userData.username}</span>
-                                <Link to="#" onClick={onLogout} className="btn btn-danger">Logout</Link>
+                                <div className="dropdown">
+                                    <button className="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Hallo, {userData.username}
+                                    </button>
+                                    <ul className="dropdown-menu">
+                                        <li><Link to={`/${userData.username}/settings`} className="dropdown-item">Settings</Link></li>
+                                        <li className="dropdown-divider"></li>
+                                        <li><Link to="#" className="dropdown-item" onClick={onLogout}>Logout</Link></li>
+                                    </ul>
+                                </div>
                             </div>
                         </>
                         :
