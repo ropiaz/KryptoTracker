@@ -7,7 +7,7 @@ import axios from "axios";
 export default function Settings(){
     const navigate = useNavigate();
     const { token, setNotification } = useStateContext();
-    const { userData, setUserData } = useAuthUserToken(token); // check if user has valid token
+    const { userData, setUserData } = useAuthUserToken(token);
     const [user, setUser] = useState({
         first_name: '',
         last_name: '',
