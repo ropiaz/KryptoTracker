@@ -6,7 +6,7 @@ import axios from "axios";
 
 export default function Settings(){
     const navigate = useNavigate();
-    const { token, notification, setNotification } = useStateContext();
+    const { token, setNotification } = useStateContext();
     const { userData, setUserData } = useAuthUserToken(token); // check if user has valid token
     const [user, setUser] = useState({
         first_name: '',
@@ -34,7 +34,7 @@ export default function Settings(){
 
     const [errors, setErrors] = useState([]);
 
-    const handleEdit = (event) => {
+    const handleEdit = async (event) => {
         event.preventDefault();
 
         try {
@@ -65,24 +65,27 @@ export default function Settings(){
                 return;
             }
 
-            axios.put('http://localhost:8000/api/user-edit/', user, {
+            axios.put(`${apiUrl}/user-edit/${token}`, user, {
                 xsrfCookieName: 'csrftoken',
                 xsrfHeaderName: 'X-CSRFToken',
-                headers: {'Content-Type': 'application/json'}
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Token ${token}`
+                }
 
             })
                 .then((res) => {
                     setNotification('Aktualisierung erfolgreich! Weiterleitung...');
-                    const userData = res.data.detail;
-                    // const token = res.data.token;
-
-                    // setToken(token);
-
-                    // reset form and errors
-                    // setUser(null);
-                    // setErrors([]);
-
-                    navigate(`/${userData.username}/settings`);
+                    const updatedUserData = res.data.detail;
+                    setUserData({
+                        'email': updatedUserData.email,
+                        'username': updatedUserData.username,
+                        'first_name': updatedUserData.first_name,
+                        'last_name': updatedUserData.last_name,
+                    });
+                    setErrors([]);
+                    navigate(`/${updatedUserData.username}/settings`);
+                    window.location.reload();
                 })
                 .catch((error) => {
                     if(error.response.status === 500) {
@@ -123,66 +126,72 @@ export default function Settings(){
                             <div className="form-floating mb-3">
                                 <input type="text"
                                        className="form-control"
-                                       id="floatingInput1"
+                                       id="firstName"
+                                       name="firstName"
                                        placeholder="Vorname"
                                        value={user.first_name}
                                        onChange={e => setUser({...user, first_name: e.target.value})}
                                 />
-                                <label htmlFor="floatingInput1">Vorname</label>
+                                <label htmlFor="firstName">Vorname</label>
                             </div>
 
                             <div className="form-floating mb-3">
                                 <input type="text"
                                        className="form-control"
-                                       id="floatingInput2"
+                                       id="lastName"
+                                       name="lastName"
                                        placeholder="Nachname"
                                        value={user.last_name}
                                        onChange={e => setUser({...user, last_name: e.target.value})}
 
                                 />
-                                <label htmlFor="floatingInput2">Nachname</label>
+                                <label htmlFor="lastName">Nachname</label>
                             </div>
 
                             <div className="form-floating mb-3">
                                 <input type="text"
                                        className="form-control"
-                                       id="floatingInput3"
+                                       id="username"
+                                       name="username"
                                        placeholder="Benutzername"
                                        value={user.username}
                                        onChange={e => setUser({...user, username: e.target.value})}
                                 />
-                                <label htmlFor="floatingInput3">Username</label>
+                                <label htmlFor="username">Username</label>
                             </div>
 
                             <div className="form-floating mb-3">
                                 <input type="email"
                                        className="form-control"
-                                       id="floatingInput4"
+                                       id="email"
+                                       name="email"
                                        placeholder="name@example.com"
                                        value={user.email}
                                        onChange={e => setUser({...user, email: e.target.value})}
                                 />
-                                <label htmlFor="floatingInput4">E-Mail</label>
+                                <label htmlFor="email">E-Mail</label>
                             </div>
                             <div className="form-floating mb-3">
                                 <input type="password"
                                        className="form-control"
-                                       id="floatingInput5"
+                                       id="password"
+                                       name="password"
                                        placeholder="Passwort*"
                                        value={user.password}
                                        onChange={e => setUser({...user, password: e.target.value})}
                                 />
-                                <label htmlFor="floatingInput5">Passwort*</label>
+                                <label htmlFor="password">Passwort*</label>
                             </div>
                             <div className="form-floating mb-3">
                                 <input type="password"
                                        className="form-control"
-                                       id="floatingInput6"
+                                       id="passwordConfirmed"
+                                       name="passwordConfirmed"
                                        placeholder="Passwort wiederholen*"
                                        value={user.passwordConfirmed}
                                        onChange={e => setUser({...user, passwordConfirmed: e.target.value})}
                                 />
-                                <label htmlFor="floatingInput6">Passwort wiederholen*</label>
+                                <label htmlFor="passwordConfirmed">Passwort wiederholen*</label>
                             </div>
 
                             <div className="mt-3">

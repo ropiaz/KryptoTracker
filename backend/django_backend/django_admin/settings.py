@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
 from pathlib import Path
+import dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -96,17 +97,30 @@ WSGI_APPLICATION = "django_admin.wsgi.application"
 # }
 
 # Docker DB
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.mysql",
+#         "NAME": os.environ["MYSQL_DATABASE"],
+#         "USER": os.environ["MYSQL_USER"],
+#         "PASSWORD": os.environ["MYSQL_PASSWORD"],
+#         "HOST": "db",
+#         "PORT": 3306,
+#     }
+# }
+
+# load .env
+dotenv.load_dotenv(dotenv_path='../../.env')
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": os.environ["MYSQL_DATABASE"],
-        "USER": os.environ["MYSQL_USER"],
-        "PASSWORD": os.environ["MYSQL_PASSWORD"],
-        "HOST": "db",
+        "NAME": os.getenv('MYSQL_DATABASE'),
+        "USER": os.getenv('MYSQL_USER'),
+        "PASSWORD": os.getenv('MYSQL_PASSWORD'),
+        "HOST": "localhost",
         "PORT": 3306,
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
