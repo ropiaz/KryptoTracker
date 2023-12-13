@@ -90,15 +90,21 @@ jobs:
           docker-compose up -d
 
       - name: Make Django Migrations
-        run: python ${{ github.workspace }}/backend/django_backend/manage.py makemigrations
+        run: |
+          source ${{ github.workspace }}/backend/venv/bin/activate
+          python ${{ github.workspace }}/backend/django_backend/manage.py makemigrations
 #        run: docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py makemigrations
 
       - name: Migrate Django
-        run: python ${{ github.workspace }}/backend/django_backend/manage.py migrate
+        run: |
+          source ${{ github.workspace }}/backend/venv/bin/activate 
+          python ${{ github.workspace }}/backend/django_backend/manage.py migrate
 #        run: docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py migrate
 
       - name: Test Django
-        run: python ${{ github.workspace }}/backend/django_backend/manage.py test
+        run: |
+          source ${{ github.workspace }}/backend/venv/bin/activate 
+          python ${{ github.workspace }}/backend/django_backend/manage.py test
 #        run: docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py test
 
       - name: Shutdown Docker
