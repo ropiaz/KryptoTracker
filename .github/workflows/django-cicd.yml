@@ -76,7 +76,14 @@ jobs:
           echo "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" >> ${{ github.workspace }}/.env
           echo "MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}" >> ${{ github.workspace }}/.env
 
-      - name: Build Docker Image for Database
+      - name: Create python virtual environment and install requirements
+        run: |
+          cd ${{ github.workspace }}/backend
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Build Docker Image for Database and PhpMyAdmin
         run: |
           docker version
           docker-compose build
