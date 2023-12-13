@@ -33,57 +33,67 @@
 #      run: |
 #        python backend/django_backend/manage.py test
 
-#name: Django CI
-#
-#on:
-#  push:
-#    branches: [ "*" ]
-#  pull_request:
-#    branches: [ "main" ]
-#
-#jobs:
-#  build:
-#
-#    runs-on: ubuntu-latest
-#    strategy:
-#      max-parallel: 4
-#      matrix:
-#        python-version: [3.11]
-#
-#    steps:
-#      - uses: actions/checkout@v3
-#
-#      - name: Set up Docker Buildx
-#        uses: docker/setup-buildx-action@v3
-#
-#      - name: Set up Python ${{ matrix.python-version }}
-#        uses: actions/setup-python@v3
-#        with:
-#          python-version: ${{ matrix.python-version }}
-#
-#      - name: Install Docker Compose
-#        run: |
-#          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-#          sudo chmod +x /usr/local/bin/docker-compose
-#
-#      - name: Change executable rights from entrypoint script
-#        run: sudo chmod +x ${{ github.workspace }}/backend/entrypoint.sh
-#
-#      - name: Build Docker Image
-#        run: |
-#          docker version
-#          docker-compose build
-#          docker-compose up -d
-#
-##      - name: Make Django Migrations
-##        run: docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py makemigrations
-#
-##      - name: Migrate Django
-##        run: docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py migrate
-#
-#      - name: Test Django
+name: Django CI
+
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      matrix:
+        python-version: [3.11]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Docker Compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+
+      - name: Change executable rights from entrypoint script
+        run: sudo chmod +x ${{ github.workspace }}/backend/entrypoint.sh
+
+      - name: Create .env file
+        run: |
+          echo "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}" >> ${{ github.workspace }}/.env
+          echo "MYSQL_USER=${{ secrets.MYSQL_USER }}" >> ${{ github.workspace }}/.env
+          echo "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" >> ${{ github.workspace }}/.env
+          echo "MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}" >> ${{ github.workspace }}/.env
+
+      - name: Build Docker Image for Database
+        run: |
+          docker version
+          docker-compose build
+          docker-compose up -d
+
+      - name: Make Django Migrations
+        run: python backend/django_backend/manage.py makemigrations
+#        run: docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py makemigrations
+
+      - name: Migrate Django
+        run: python backend/django_backend/manage.py migrate
+#        run: docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py migrate
+
+      - name: Test Django
+        run: python backend/django_backend/manage.py test
 #        run: docker exec kryptotracker-backend-1 python /app/backend/django_backend/manage.py test
-#
-#      - name: Shutdown Docker
-#        run: docker-compose down -v
+
+      - name: Shutdown Docker
+        run: docker-compose down -v
 
