@@ -22,7 +22,6 @@ export default function Dashboard(){
     return (
         <div className="container mt-3 mb-3 fadeInDown animated">
             <h2>Dashboard</h2>
-            {userData && <p>Angemeldet als: {userData.username}</p>}
 
             <Stats />
             <PortfolioAndStakingTables />

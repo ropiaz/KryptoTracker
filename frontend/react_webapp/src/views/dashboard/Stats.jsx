@@ -28,14 +28,18 @@ export default function Stats() {
 
     return (
         <div className="row row-cols-1 row-cols-md-3 g-3 mb-3">
-            {stats.map((stat, index) => (
-                <StatCard
-                    key={index}
-                    title={stat.title}
-                    value={stat.value}
-                    additionalInfo={stat.additionalInfo}
-                />
-            ))}
+            {stats.length === 0
+                ? <p>Keine Daten vorhanden</p>
+                : stats.map((stat, index) => (
+                    <StatCard
+                        key={index}
+                        title={stat.title}
+                        value={stat.value}
+                        additionalInfo={stat.additionalInfo}
+                    />
+                ))
+            }
+
         </div>
     );
 };

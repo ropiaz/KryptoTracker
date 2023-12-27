@@ -13,16 +13,16 @@ const transactionsData = [
     { type: 'Einzahlung', date: '01/11/23', amount: '+0.0190 BTC', value: '45,00 EUR' },
     { type: 'Gesendet', date: '01/11/23', amount: '+0.0190 ETH', value: '45,00 EUR' },
     { type: 'Einzahlung', date: '01/11/23', amount: '+0.0190 BTC', value: '45,00 EUR' },
-    { type: 'Trade', date: '01/11/23', amount: '+0.0190 BTC', value: '45,00 EUR' },
-    { type: 'Gewinn Staking', date: '01/11/23', amount: '+0.0190 ETH', value: '45,00 EUR' },
-    { type: 'Gewinn Staking', date: '01/11/23', amount: '+0.0190 ETH', value: '45,00 EUR' },
+    { type: 'Handel', date: '01/11/23', amount: '+0.0190 BTC', value: '45,00 EUR' },
+    { type: 'Staking-Reward', date: '01/11/23', amount: '+0.0190 ETH', value: '45,00 EUR' },
+    { type: 'Staking-Reward', date: '01/11/23', amount: '+0.0190 ETH', value: '45,00 EUR' },
 ];
 
 const getIcon = (transaction) => {
     switch (transaction.type) {
         case 'Einzahlung': return receiveIcon;
-        case 'Trade': return tradeIcon;
-        case 'Gewinn Staking': return earnIcon;
+        case 'Handel': return tradeIcon;
+        case 'Staking-Reward': return earnIcon;
         case 'Gesendet': return sentIcon;
         default: return "https://placehold.jp/18/bdbdbd/ffffff/50x50.png?text=not+found";
     }
