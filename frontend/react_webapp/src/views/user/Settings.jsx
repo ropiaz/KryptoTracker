@@ -1,14 +1,14 @@
 import React, {useEffect, useState} from "react";
 import { useNavigate } from "react-router-dom";
-import { useStateContext } from "../../contexts/ContextProvider";
-import useAuthUserToken from "../../utils/useAuthUserToken";
+import { useStateContext } from "../../contexts/ContextProvider.jsx";
+import { getUser } from "../../hooks/Auth.jsx";
 import axios from "axios";
 
 export default function Settings(){
     const navigate = useNavigate();
     const { token, setNotification } = useStateContext();
-    const { userData, setUserData } = useAuthUserToken(token);
-    const [user, setUser] = useState({
+    const { userData } = getUser(token);
+    const [editUser, setEditUser] = useState({
         first_name: '',
         last_name: '',
         username: '',
@@ -21,7 +21,7 @@ export default function Settings(){
 
     useEffect(() => {
         if (userData) {
-            setUser({
+            setEditUser({
                 first_name: userData.first_name || '',
                 last_name: userData.last_name || '',
                 username: userData.username || '',
@@ -37,54 +37,46 @@ export default function Settings(){
     const handleEdit = async (event) => {
         event.preventDefault();
 
+        let newErrors = [];
+
+        const fields = {
+            'email': 'E-Mail',
+            'username': 'Username',
+            'first_name': 'Vorname',
+            'last_name': 'Nachname',
+            'password': 'Passwort',
+            'passwordConfirmed': 'Passwort wiederholen'
+        };
+
+        // Check for empty fields
+        for (const [key, value] of Object.entries(editUser)) {
+            if (!value) {
+                newErrors.push(`Das Feld ${fields[key]} darf nicht leer sein.`);
+            }
+        }
+
+        if (editUser.password !== editUser.passwordConfirmed) {
+            newErrors.push('Passwörter stimmen nicht überein!');
+        }
+
+        if (newErrors.length > 0) {
+            setErrors(newErrors);
+            return;
+        }
+
         try {
-            let newErrors = [];
-
-            const fields = {
-                'email': 'E-Mail',
-                'username': 'Username',
-                'first_name': 'Vorname',
-                'last_name': 'Nachname',
-                'password': 'Passwort',
-                'passwordConfirmed': 'Passwort wiederholen'
-            };
-
-            // Check for empty fields
-            for (const [key, value] of Object.entries(user)) {
-                if (!value) {
-                    newErrors.push(`Das Feld ${fields[key]} darf nicht leer sein.`);
-                }
-            }
-
-            if (user.password !== user.passwordConfirmed) {
-                newErrors.push('Passwörter stimmen nicht überein!');
-            }
-
-            if (newErrors.length > 0) {
-                setErrors(newErrors);
-                return;
-            }
-
-            axios.put(`${apiUrl}/user-edit/${token}`, user, {
+            await axios.put(`${apiUrl}/user-edit/${token}`, editUser, {
                 xsrfCookieName: 'csrftoken',
                 xsrfHeaderName: 'X-CSRFToken',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Token ${token}`
                 }
-
             })
                 .then((res) => {
                     setNotification('Aktualisierung erfolgreich! Weiterleitung...');
-                    const updatedUserData = res.data.detail;
-                    setUserData({
-                        'email': updatedUserData.email,
-                        'username': updatedUserData.username,
-                        'first_name': updatedUserData.first_name,
-                        'last_name': updatedUserData.last_name,
-                    });
                     setErrors([]);
-                    navigate(`/${updatedUserData.username}/settings`);
+                    navigate('/user/settings');
                     window.location.reload();
                 })
                 .catch((error) => {
@@ -129,8 +121,8 @@ export default function Settings(){
                                        id="firstName"
                                        name="firstName"
                                        placeholder="Vorname"
-                                       value={user.first_name}
-                                       onChange={e => setUser({...user, first_name: e.target.value})}
+                                       value={editUser.first_name}
+                                       onChange={e => setEditUser({...editUser, first_name: e.target.value})}
                                 />
                                 <label htmlFor="firstName">Vorname</label>
                             </div>
@@ -141,8 +133,8 @@ export default function Settings(){
                                        id="lastName"
                                        name="lastName"
                                        placeholder="Nachname"
-                                       value={user.last_name}
-                                       onChange={e => setUser({...user, last_name: e.target.value})}
+                                       value={editUser.last_name}
+                                       onChange={e => setEditUser({...editUser, last_name: e.target.value})}
 
                                 />
                                 <label htmlFor="lastName">Nachname</label>
@@ -154,8 +146,8 @@ export default function Settings(){
                                        id="username"
                                        name="username"
                                        placeholder="Benutzername"
-                                       value={user.username}
-                                       onChange={e => setUser({...user, username: e.target.value})}
+                                       value={editUser.username}
+                                       onChange={e => setEditUser({...editUser, username: e.target.value})}
                                 />
                                 <label htmlFor="username">Username</label>
                             </div>
@@ -166,8 +158,8 @@ export default function Settings(){
                                        id="email"
                                        name="email"
                                        placeholder="name@example.com"
-                                       value={user.email}
-                                       onChange={e => setUser({...user, email: e.target.value})}
+                                       value={editUser.email}
+                                       onChange={e => setEditUser({...editUser, email: e.target.value})}
                                 />
                                 <label htmlFor="email">E-Mail</label>
                             </div>
@@ -177,8 +169,8 @@ export default function Settings(){
                                        id="password"
                                        name="password"
                                        placeholder="Passwort*"
-                                       value={user.password}
-                                       onChange={e => setUser({...user, password: e.target.value})}
+                                       value={editUser.password}
+                                       onChange={e => setEditUser({...editUser, password: e.target.value})}
                                 />
                                 <label htmlFor="password">Passwort*</label>
                             </div>
@@ -188,8 +180,8 @@ export default function Settings(){
                                        id="passwordConfirmed"
                                        name="passwordConfirmed"
                                        placeholder="Passwort wiederholen*"
-                                       value={user.passwordConfirmed}
-                                       onChange={e => setUser({...user, passwordConfirmed: e.target.value})}
+                                       value={editUser.passwordConfirmed}
+                                       onChange={e => setEditUser({...editUser, passwordConfirmed: e.target.value})}
                                 />
                                 <label htmlFor="passwordConfirmed">Passwort wiederholen*</label>
                             </div>

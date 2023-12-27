@@ -313,3 +313,9 @@
 .required-text {
   color: #C20000;
 }
+
+/* User Dashboard */
+.shadow-bg {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  border-radius: 5px;
+}

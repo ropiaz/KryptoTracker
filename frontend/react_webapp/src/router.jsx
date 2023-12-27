@@ -5,8 +5,9 @@ import NotFound from "./views/NotFound";
 import Home from "./views/guest/Home";
 import Login from "./views/guest/Login";
 import Register from "./views/guest/Register";
-import Dashboard from "./views/user/Dashboard";
+import Dashboard from "./views/dashboard/Dashboard";
 import Settings from "./views/user/Settings";
+import Tax from "./views/tax/Tax";
 
 const router = createBrowserRouter([
     {
@@ -28,16 +29,20 @@ const router = createBrowserRouter([
         ]
     },
     {
-        path: '/:username',
+        path: '/user',
         element: <UserLayout />,
         children: [
             {
-                path: '/:username',
+                path: '/user/dashboard',
                 element: <Dashboard />
             },
             {
-                path: '/:username/settings',
+                path: '/user/settings',
                 element: <Settings />
+            },
+            {
+                path: '/user/taxes',
+                element: <Tax />
             },
         ]
     },

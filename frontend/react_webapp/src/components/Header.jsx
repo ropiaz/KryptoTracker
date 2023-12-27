@@ -1,20 +1,28 @@
 import React from 'react';
+import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 import { useStateContext } from "../contexts/ContextProvider";
-import useAuthUserToken from "../utils/useAuthUserToken";
-import axios from "axios";
+import { getUser } from "../hooks/Auth";
 
 export default function Header(){
     const navigate = useNavigate();
     const { setToken, token, setNotification } = useStateContext();
-    const { userData, setUserData } = useAuthUserToken(token);
+    const { userData, isLoading, isError } = getUser(token);
+
+    if (isLoading) {
+        return "";
+    }
+
+    if (isError) {
+        return <p>Es gab einen Fehler beim Laden der Benutzerdaten.</p>;
+    }
 
     const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
     const onLogout = async (ev) => {
         ev.preventDefault();
         try {
-            axios.post(`${apiUrl}/logout/`, {}, {
+            await axios.post(`${apiUrl}/logout/`, {}, {
                 xsrfCookieName: 'csrftoken',
                 xsrfHeaderName: 'X-CSRFToken',
                 headers: {
@@ -25,17 +33,15 @@ export default function Header(){
                 .then((res) => {
                     setNotification('Logout erfolgreich! Weiterleitung...');
                     setToken(null);
-                    setUserData(null);
                     navigate('/');
                 })
                 .catch((error) => {
                     setToken(null);
-                    setUserData(null);
                     navigate('/');
                 });
         } catch (error) {
+            setNotification('Fehler beim Logout.');
             setToken(null);
-            setUserData(null);
             navigate('/');
         }
     }
@@ -50,14 +56,14 @@ export default function Header(){
                 </button>
                 <div className="collapse navbar-collapse justify-content-center" id="navbarSupportedContent">
                     <ul className="navbar-nav mb-2 mb-lg-0 ms-auto">
+                            <li className="nav-item">
+                                <Link className="nav-link" to="/">Home</Link>
+                            </li>
                         <li className="nav-item">
-                            <Link className="nav-link" to="/">Home</Link>
+                            <Link className="nav-link" to={userData?.username ? '/user/dashboard' : '/login'}>Dashboard</Link>
                         </li>
                         <li className="nav-item">
-                            <Link className="nav-link" to={userData?.username ? `/${userData.username}` : '/'}>Dashboard</Link>
-                        </li>
-                        <li className="nav-item">
-                            <Link className="nav-link" to='/'>Steuerbericht</Link>
+                            <Link className="nav-link" to={userData?.username ? '/user/taxes' : '/login'}>Steuerbericht</Link>
                         </li>
                         <li className="nav-item dropdown">
                             <Link to="#" className="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -83,24 +89,21 @@ export default function Header(){
                             </ul>
                         </li>
                     </ul>
-                    {userData?.username
-                        ?
-                        <>
+                    {userData && (
                             <div className="d-flex ms-auto">
                                 <div className="dropdown">
                                     <button className="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        Hallo, {userData.username}
+                                        Hallo, {userData?.username}
                                     </button>
                                     <ul className="dropdown-menu">
-                                        <li><Link to={`/${userData.username}/settings`} className="dropdown-item">Settings</Link></li>
+                                        <li><Link to={'/user/settings'} className="dropdown-item">Settings</Link></li>
                                         <li className="dropdown-divider"></li>
                                         <li><Link to="#" className="dropdown-item" onClick={onLogout}>Logout</Link></li>
                                     </ul>
                                 </div>
                             </div>
-                        </>
-                        :
-                        <>
+                        )}
+                    {!userData && (
                             <div className="d-flex ms-auto">
                                 <button type="button"
                                         className="login-button me-2"
@@ -115,7 +118,7 @@ export default function Header(){
                                     Registrieren
                                 </button>
                             </div>
-                        </>
+                        )
                     }
                 </div>
             </div>

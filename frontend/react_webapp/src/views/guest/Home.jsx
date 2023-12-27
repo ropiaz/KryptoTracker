@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from "react-router-dom";
-import useLogin from "../../utils/useLogin";
+import { login } from "../../hooks/Auth.jsx";
 import { useStateContext } from "../../contexts/ContextProvider";
 
 export default function Home(){
@@ -12,7 +12,7 @@ export default function Home(){
         setPassword,
         errors,
         handleLogin
-    } = useLogin();
+    } = login();
 
     const { token } = useStateContext();
 

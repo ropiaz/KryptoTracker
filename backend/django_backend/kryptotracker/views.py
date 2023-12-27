@@ -56,7 +56,7 @@ class LoginAPI(APIView):
                     token.delete()
                     token = Token.objects.create(user=user)
 
-                return Response(data={'detail': user_serializer.data, 'token': token.key}, status=status.HTTP_200_OK)
+                return Response(data={'token': token.key}, status=status.HTTP_200_OK)
             else:
                 return Response(data={'detail': 'Falsches Passwort.'}, status=status.HTTP_401_UNAUTHORIZED)
         else:
@@ -73,8 +73,7 @@ class UserRegisterAPI(APIView):
             user = User.objects.get(username=serializer.validated_data['username'])
             if user is not None:
                 token, created = Token.objects.get_or_create(user=user)
-                user_serializer = UserSerializer(user)
-                return Response(data={'detail': user_serializer.data, 'token': token.key}, status=status.HTTP_200_OK)
+                return Response(data={'token': token.key}, status=status.HTTP_200_OK)
             else:
                 return Response(data={'detail': 'Registrierung fehlgeschlagen. Bitte erneut versuchen.'},
                                 status=status.HTTP_406_NOT_ACCEPTABLE)
@@ -113,7 +112,7 @@ class EditUser(APIView):
                 user_serializer = UserEditSerializer(user, data=request.data)
                 if user_serializer.is_valid():
                     user_serializer.save()
-                    return Response(data={'detail': user_serializer.data}, status=status.HTTP_200_OK)
+                    return Response(status=status.HTTP_200_OK)
                 return Response(data=user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Token.DoesNotExist:
             return Response({'detail': 'Ungültiges Token.'}, status=status.HTTP_400_BAD_REQUEST)
