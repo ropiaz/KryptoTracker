@@ -1,8 +1,10 @@
 # Author: Roberto Piazza
-# Date: 12.12.2023
+# Date: 29.12.2023
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import make_password
+from .models import *
+
 
 class UserSerializer(serializers.ModelSerializer):
     """Return User JSON Object. PW excluded."""
@@ -10,6 +12,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'password', 'date_joined']
         extra_kwargs = {'password': {'write_only': True}}
+
 
 class UserLoginSerializer(serializers.ModelSerializer):
     """Validate Email and return User JSON Object only with email and pw."""
@@ -23,6 +26,7 @@ class UserLoginSerializer(serializers.ModelSerializer):
             detail = ["E-Mail nicht gefunden."]
             raise serializers.ValidationError(detail=detail)
         return email
+
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     username = serializers.CharField(required=True)
@@ -58,6 +62,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         # TODO: define more rules for password
 
         return make_password(password)
+
 
 class UserEditSerializer(serializers.ModelSerializer):
     username = serializers.CharField(required=False)
@@ -107,3 +112,16 @@ class UserEditSerializer(serializers.ModelSerializer):
                 setattr(instance, attr, value)
         instance.save()
         return instance
+
+
+class PortfolioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Portfolio
+        # fields = ['id', 'name', 'balance', 'created_at', 'updated_at', 'user_id', 'portfolio_type_id']
+        fields = '__all__'
+
+
+class AssetOwnedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssetOwned
+        fields = '__all__'

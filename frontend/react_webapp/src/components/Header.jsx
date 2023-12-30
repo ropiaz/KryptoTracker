@@ -2,7 +2,7 @@ import React from 'react';
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 import { useStateContext } from "../contexts/ContextProvider";
-import { getUser } from "../hooks/Auth";
+import { getUser } from "../hooks/Auth.jsx";
 
 export default function Header(){
     const navigate = useNavigate();

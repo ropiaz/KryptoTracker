@@ -72,6 +72,7 @@ class UserRegisterAPI(APIView):
             serializer.save()
             user = User.objects.get(username=serializer.validated_data['username'])
             if user is not None:
+                login(request, user)
                 token, created = Token.objects.get_or_create(user=user)
                 return Response(data={'token': token.key}, status=status.HTTP_200_OK)
             else:
