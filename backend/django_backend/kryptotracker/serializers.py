@@ -1,5 +1,6 @@
 # Author: Roberto Piazza
-# Date: 29.12.2023
+# Date: 03.01.2023
+
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import make_password
@@ -117,11 +118,22 @@ class UserEditSerializer(serializers.ModelSerializer):
 class PortfolioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Portfolio
-        # fields = ['id', 'name', 'balance', 'created_at', 'updated_at', 'user_id', 'portfolio_type_id']
         fields = '__all__'
 
 
 class AssetOwnedSerializer(serializers.ModelSerializer):
     class Meta:
         model = AssetOwned
+        fields = '__all__'
+
+
+class AssetInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssetInfo
+        fields = '__all__'
+
+
+class TransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Transaction
         fields = '__all__'

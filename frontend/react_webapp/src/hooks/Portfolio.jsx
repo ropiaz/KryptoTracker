@@ -2,14 +2,14 @@ import { useQuery } from 'react-query';
 import { useStateContext } from '../contexts/ContextProvider';
 
 export const getPortfolio = () => {
-    const { token } = useStateContext();
+    const { token, setNotification } = useStateContext();
     const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
     const fetchPortfolio = async () => {
         if (!token) return null;
 
         try {
-            const response = await fetch(`${apiUrl}/portfolio/`, {
+            const response = await fetch(`${apiUrl}/dashboard/`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Token ${token}`,
@@ -17,7 +17,7 @@ export const getPortfolio = () => {
                 },
             });
             if (!response.ok) {
-                console.log(response);
+                setNotification("Keine Verbindung zum Datenbankserver. Bitte später erneut versuchen.");
                 throw new Error('Netzwerkantwort war nicht ok.');
             }
             return await response.json();

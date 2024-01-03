@@ -1,5 +1,9 @@
+# Author: Roberto Piazza
+# Date: 03.01.2023
+
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
+from django.contrib.auth.hashers import make_password
 from kryptotracker.models import *
 from pycoingecko import CoinGeckoAPI
 import pandas as pd
@@ -31,7 +35,8 @@ class Command(BaseCommand):
         self.stdout.write('Seeding data...')
 
         # create dummy user
-        user = User.objects.create(username='Testuser', password='Test123', email='test@test.de')
+        pw = make_password("Test123")
+        user = User.objects.create(username='Testuser', password=pw, email='test@test.de')
 
         # create dummy portfolio types
         portfolio_type_staking = PortfolioType.objects.create(type='Staking')

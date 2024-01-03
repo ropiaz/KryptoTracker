@@ -1,4 +1,5 @@
 import React from "react";
+import { getPortfolio } from "../../hooks/Portfolio.jsx";
 
 // single card component for statistics
 const StatCard = ({ title, value, additionalInfo }) => (
@@ -14,16 +15,23 @@ const StatCard = ({ title, value, additionalInfo }) => (
 );
 
 // dashboard statistics component that includes all cards
-// TODO: GET Portfolio Data from DB
-export default function Stats() {
-    // dummy data for statistic cards
+export default function Stats({ portfolioData }) {
+
+    const sumBalance = portfolioData?.sum_balance.toFixed(2).replace('.', ',');
+    const spotBalance = portfolioData?.spot_balance.toFixed(2).replace('.', ',');
+    const stakingBalance = portfolioData?.staking_balance.toFixed(2).replace('.', ',');
+    const firstTransaction = portfolioData?.first_transaction;
+    const lastTransaction = portfolioData?.last_transaction;
+    const transactionsCount = portfolioData?.transactions.count;
+    const transactionsWithCoins = portfolioData?.transactions.with_coins;
+
     const stats = [
-        { title: 'Gesamtwert aller Währungen', value: '70292,58 €', additionalInfo: null },
-        { title: 'Aktuelle Portfolio Bilanz', value: '65162,85 €', additionalInfo: null },
-        { title: 'Aktuelle Staking Bilanz', value: '5129,73 €', additionalInfo: null },
-        { title: 'Erste Transaktion', value: '08.09.2018', additionalInfo: null },
-        { title: 'Letzte Transaktion', value: '23.10.2023', additionalInfo: null },
-        { title: 'Gesamtanzahl an Transaktionen', value: '6 Transaktionen', additionalInfo: 'mit 2 Coins' },
+        { title: 'Gesamtwert aller Währungen', value: sumBalance + ' €', additionalInfo: null },
+        { title: 'Aktuelle Portfolio Bilanz', value: spotBalance + ' €', additionalInfo: null },
+        { title: 'Aktuelle Staking Bilanz', value: stakingBalance + ' €', additionalInfo: null },
+        { title: 'Erste Transaktion', value: firstTransaction, additionalInfo: null },
+        { title: 'Letzte Transaktion', value: lastTransaction, additionalInfo: null },
+        { title: 'Gesamtanzahl an Transaktionen', value: transactionsCount + ' Transaktionen', additionalInfo: `mit ${transactionsWithCoins} Coins` },
     ];
 
     return (

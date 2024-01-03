@@ -1,3 +1,6 @@
+# Author: Roberto Piazza
+# Date: 03.01.2023
+
 from django.urls import path, include
 from rest_framework import routers
 from . import views
@@ -12,5 +15,6 @@ urlpatterns = [
     path("login/", views.LoginAPI.as_view(), name="user_login"),
     path("user-auth/", views.AuthUser.as_view(), name="user_auth"),
     path("user-edit/<str:token>", views.EditUser.as_view(), name="user_edit"),
+    path('dashboard/', views.DashboardAPIView.as_view(), name='dashboard-list'),
     # path("user/", include(router.urls)),
 ]
