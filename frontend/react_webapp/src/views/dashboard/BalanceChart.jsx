@@ -1,69 +1,117 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import Select from 'react-select';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-// dummy data for chart
-const data = [
-  {name: 'BTC', value: 9000},
-  {name: 'ETH', value: 3000},
-  {name: 'LTC', value: 5000},
-  {name: 'ADA', value: 8500},
-  {name: 'EUR', value: 1000}
-];
-
-// <div className="d-flex justify-content-between align-items-center">
-//   <h5 className="card-title">Bestand nach Währung</h5>
-//   <div className="d-flex">
-//     <select className="form-select form-select-sm mx-1" aria-label="FiatSelector">
-//       <option defaultValue="EUR">EUR</option>
-//       <option value="USD">USD</option>
-//       {/* Weitere Optionen */}
-//     </select>
-//     <select className="form-select form-select-sm mx-1" aria-label="AssetSelector">
-//       <option defaultValue="Alle Währungen">Alle Assets</option>
-//       <option value="BTC">BTC</option>
-//       <option value="ETH">ETH</option>
-//       {/* Weitere Optionen */}
-//     </select>
-//   </div>
-// </div>
-
-// TODO: get Portfolio Data, display chart with select function fiat and coin
-export default function BalanceChart() {
-  return (
-      <div className="card shadow-bg mb-3">
-        <div className="card-body">
-          <div className="row">
-            <div className="col-md-6">
-              <h5 className="card-title mb-3">Bestand nach Währung</h5>
-            </div>
-            <div className="col-md-3 mb-3">
-              <select className="form-select" aria-label="FiatSelector">
-                <option defaultValue="EUR">EUR</option>
-                <option value="1">USD</option>
-              </select>
-            </div>
-            <div className="col-md-3 mb-3">
-              <select className="form-select" aria-label="AssetSelector">
-                <option defaultValue="Alle Assets">Alle Assets</option>
-                <option value="1">BTC</option>
-                <option value="2">ETH</option>
-                <option value="3">LTC</option>
-                <option value="3">ADA</option>
-                <option value="3">EUR</option>
-              </select>
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="value" fill="#3967AE" />
-          </BarChart>
-        </ResponsiveContainer>
-        </div>
+// custom tooltip component for displaying bar values
+function CustomTooltip({ active, payload, label }) {
+  if (active && payload && payload.length) {
+    const value = payload[0].value.toFixed(2).replace('.', ',');
+    return (
+      <div className="custom-tooltip">
+        <span>{`${label} : ${value}`} €</span>
       </div>
-  );
+    );
+  }
+
+  return null;
+}
+
+// interactive dashboard component that shows the user assets and their value in a bar chart with filter function
+export default function BalanceChart({ portfolioData }) {
+    const [selectedAssets, setSelectedAssets] = useState([]);
+    const [filteredChartData, setFilteredChartData] = useState([]);
+
+    // Optionen für den Select-Component, einschließlich der "Alle" Option
+    const allOption = { value: 'All', label: 'Alle Assets' };
+    const assetOptions = portfolioData?.chart_data.map(owned => ({
+        value: owned.asset,
+        label: owned.asset
+    }));
+    const options = [allOption, ...assetOptions];
+
+    // initialize the selection with all assets if the portfolio data object is available
+    useEffect(() => {
+        if (portfolioData?.chart_data) {
+          setSelectedAssets(assetOptions.map(option => option.value));
+          setFilteredChartData(portfolioData.chart_data);
+        }
+    }, [portfolioData]);
+
+    // update the filtered data when the selection changes
+    useEffect(() => {
+        if (portfolioData?.chart_data) {
+            const filteredData = portfolioData.chart_data.filter(owned =>
+                selectedAssets.includes(owned.asset)
+            );
+            setFilteredChartData(filteredData);
+        }
+    }, [selectedAssets, portfolioData]);
+
+    const handleSelectChange = selectedOptions => {
+        // check whether the "All" option is selected
+        if (selectedOptions.some(option => option.value === allOption.value)) {
+          // if all were already selected and "All" is selected again, cancel the selection
+          if (selectedAssets.length === assetOptions.length) {
+            setSelectedAssets([]);
+          } else {
+            // select all assets
+            setSelectedAssets(assetOptions.map(option => option.value));
+          }
+        } else {
+          // select the specific assets
+          setSelectedAssets(selectedOptions.map(option => option.value));
+        }
+    };
+
+    return (
+        <div className="card shadow-bg mb-3">
+          <div className="card-body">
+              <div className="row">
+                  <div className="col-md-6">
+                      <h5 className="card-title mb-3">Bestand nach Währung</h5>
+                  </div>
+                  {portfolioData?.chart_data.length === 0 ? (
+                      <p>Keine Daten verfügbar</p>
+                  ) : (
+                      <div className="col-md-6 mb-3">
+                          <Select
+                              options={options}
+                              isMulti
+                              closeMenuOnSelect={false}
+                              onChange={handleSelectChange}
+                              value={options.filter(option => selectedAssets.includes(option.value))}
+                          />
+                      </div>
+                  )}
+              </div>
+              {portfolioData?.chart_data.length > 0 && (
+                  <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={filteredChartData} margin={{top: 5, right: 30, left: 20, bottom: 25}}>
+                          <CartesianGrid strokeDasharray="3 3"/>
+                          <XAxis
+                              dataKey="asset"
+                              label={{
+                                  value: 'Kryptowährungen',
+                                  position: 'insideBottom',
+                                  offset: -15,
+                                  style: { textAnchor: 'middle' }
+                              }}
+                          />
+                          <YAxis
+                              label={{
+                                  value: 'Euro',
+                                  angle: -90,
+                                  position: 'insideLeft',
+                                  style: { textAnchor: 'middle' }
+                              }}
+                          />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Legend verticalAlign="top" wrapperStyle={{ lineHeight: '40px' }} />
+                          <Bar dataKey="EUR" fill="#3967AE" />
+                      </BarChart>
+                  </ResponsiveContainer>
+              )}
+          </div>
+        </div>
+    );
 }

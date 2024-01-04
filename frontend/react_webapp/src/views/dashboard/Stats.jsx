@@ -1,5 +1,4 @@
 import React from "react";
-import { getPortfolio } from "../../hooks/Portfolio.jsx";
 
 // single card component for statistics
 const StatCard = ({ title, value, additionalInfo }) => (
@@ -16,7 +15,6 @@ const StatCard = ({ title, value, additionalInfo }) => (
 
 // dashboard statistics component that includes all cards
 export default function Stats({ portfolioData }) {
-
     const sumBalance = portfolioData?.sum_balance.toFixed(2).replace('.', ',');
     const spotBalance = portfolioData?.spot_balance.toFixed(2).replace('.', ',');
     const stakingBalance = portfolioData?.staking_balance.toFixed(2).replace('.', ',');

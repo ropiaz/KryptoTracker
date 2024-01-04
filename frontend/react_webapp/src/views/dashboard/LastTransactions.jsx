@@ -3,21 +3,9 @@ import earnIcon from '../../assets/earn-stake.png';
 import receiveIcon from '../../assets/receive.png';
 import sentIcon from '../../assets/sent.png';
 import tradeIcon from '../../assets/trade.png';
+import { Link } from "react-router-dom";
 
-// dummy data for last transactions
-const transactionsData = [
-    { type: 'Gesendet', date: '01/11/23', amount: '+0.0190 ETH', value: '45,00 EUR' },
-    { type: 'Gesendet', date: '01/11/23', amount: '+0.0190 ETH', value: '45,00 EUR' },
-    { type: 'Gesendet', date: '01/11/23', amount: '+0.0190 ETH', value: '45,00 EUR' },
-    { type: 'Gesendet', date: '01/11/23', amount: '+0.0190 ETH', value: '45,00 EUR' },
-    { type: 'Einzahlung', date: '01/11/23', amount: '+0.0190 BTC', value: '45,00 EUR' },
-    { type: 'Gesendet', date: '01/11/23', amount: '+0.0190 ETH', value: '45,00 EUR' },
-    { type: 'Einzahlung', date: '01/11/23', amount: '+0.0190 BTC', value: '45,00 EUR' },
-    { type: 'Handel', date: '01/11/23', amount: '+0.0190 BTC', value: '45,00 EUR' },
-    { type: 'Staking-Reward', date: '01/11/23', amount: '+0.0190 ETH', value: '45,00 EUR' },
-    { type: 'Staking-Reward', date: '01/11/23', amount: '+0.0190 ETH', value: '45,00 EUR' },
-];
-
+// Return icon img-path according to transaction type id
 const getIcon = (transaction) => {
     switch (transaction.tx_type) {
         case 1: return earnIcon;
@@ -28,6 +16,7 @@ const getIcon = (transaction) => {
     }
 }
 
+// Return transaction type in text according to transaction type id
 const getType = (transaction) => {
     switch (transaction.tx_type) {
         case 1: return "Staking-Reward";
@@ -38,6 +27,7 @@ const getType = (transaction) => {
     }
 }
 
+// dashboard component that shows the last five transactions
 const TransactionItem = ({ transaction }) => (
     <div className="d-flex justify-content-between align-items-center mb-2">
         <div className="d-flex align-items-center">
@@ -54,7 +44,7 @@ const TransactionItem = ({ transaction }) => (
     </div>
 );
 
-// TODO: Get real Transactions Data
+// dashboard component that shows the last five transactions
 export default function LastTransactions({ portfolioData }){
     const lastFiveTransactions = portfolioData?.last_five_transactions;
 
@@ -63,13 +53,18 @@ export default function LastTransactions({ portfolioData }){
             <div className="card shadow-bg">
                 <div className="card-body">
                     <h5 className="card-title mb-3">Letzte Transaktionen</h5>
-                        {lastFiveTransactions.map((transaction, index) => (
-                            <TransactionItem key={index} transaction={transaction} />
-                        ))}
-                    <div className="mt-3">
-                        <a href="#" className="card-link">Zeige alle Transaktionen</a>
-                    </div>
-               </div>
+                    {lastFiveTransactions.length === 0 && (
+                        <p>Keine Daten verfügbar</p>
+                    )}
+                    {lastFiveTransactions.length > 0 && lastFiveTransactions.map((transaction, index) => (
+                        <TransactionItem key={index} transaction={transaction} />
+                    ))}
+                    {lastFiveTransactions.length > 0 && (
+                        <div className="mt-3">
+                            <Link to="/user/transactions" className="card-link">Zeige alle Transaktionen</Link>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

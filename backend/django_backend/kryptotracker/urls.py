@@ -15,6 +15,9 @@ urlpatterns = [
     path("login/", views.LoginAPI.as_view(), name="user_login"),
     path("user-auth/", views.AuthUser.as_view(), name="user_auth"),
     path("user-edit/<str:token>", views.EditUser.as_view(), name="user_edit"),
+    path('portfolio/', views.PortfolioAPIView.as_view(), name='portfolio-list'),
+    path('portfolio/<int:pk>/', views.PortfolioAPIView.as_view(), name='portfolio-detail'),
     path('dashboard/', views.DashboardAPIView.as_view(), name='dashboard-list'),
+
     # path("user/", include(router.urls)),
 ]

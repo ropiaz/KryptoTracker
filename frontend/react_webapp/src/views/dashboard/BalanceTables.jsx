@@ -1,6 +1,5 @@
 import React from 'react';
 
-// TODO: Pagination, Search in Datasets, Filter Columns
 const BilanzTableComponent = ({ title, dataset }) => {
     const totalValue = dataset.reduce((acc, item) => acc + parseFloat(item.owned_value), 0).toFixed(2).replace('.', ',');
 
@@ -62,6 +61,8 @@ const BilanzTableComponent = ({ title, dataset }) => {
     );
 };
 
+// dashboard component that shows owned assets in spot and staking portfolio
+// TODO: Pagination max 10 on one page, Search in Datasets, Filter Columns
 export default function PortfolioAndStakingTables({ portfolioData }){
     const spotData = portfolioData?.spot_data;
     const stakingData = portfolioData?.staking_data;

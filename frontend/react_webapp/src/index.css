@@ -319,3 +319,10 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
   border-radius: 5px;
 }
+
+.custom-tooltip {
+  background-color: white;
+  padding: 10px;
+  border: 1px solid #ccc;
+  box-shadow: 0px 0px 5px #aaa;
+}

@@ -1,5 +1,5 @@
 # Author: Roberto Piazza
-# Date: 03.01.2023
+# Date: 04.01.2023
 
 # models import and django auth functions
 from django.db.models import Q
@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from .serializers import *
 # python and other dependencies
 from datetime import datetime
+import pytz
 
 
 class LogoutAPI(APIView):
@@ -140,20 +141,15 @@ class DashboardAPIView(APIView):
         for data in portfolios:
             sum_balance += float(data['balance'])
             if data['portfolio_type'] == 1:
-                staking_balance = float(data['balance'])
-            if data['portfolio_type'] == 2:
                 spot_balance = float(data['balance'])
+            if data['portfolio_type'] == 2:
+                staking_balance = float(data['balance'])
 
         return sum_balance, spot_balance, staking_balance
 
-
     # TODO: calculate trend for each asset
-    def get_assets_in_portfolios(self, user):
+    def get_assets_in_portfolios(self, user, asset_infos):
         """Returns two lists containing the assets from staking and spot portfolio"""
-        # get all asset infos from database
-        asset_infos = AssetInfo.objects.all()
-        asset_infos_serializer = AssetInfoSerializer(asset_infos, many=True)
-
         spot = []
         asset_owned_in_spot = AssetOwned.objects.filter(portfolio__portfolio_type=1, portfolio__user=user, asset__in=asset_infos)
         for owned in asset_owned_in_spot:
@@ -181,7 +177,6 @@ class DashboardAPIView(APIView):
             staking.append(currency)
         return spot, staking
 
-
     def get_transactions_data(self, user):
         """Get all transactions and extract necessary data"""
         transactions = Transaction.objects.filter(
@@ -191,7 +186,6 @@ class DashboardAPIView(APIView):
         transactions_serializer = TransactionSerializer(transactions, many=True)
         count_transactions = len(transactions_serializer.data)
 
-        # TODO BUGFIX: extract first and last transaction
         first_transaction = transactions.first()
         first_transaction_formatted = first_transaction.tx_date.strftime(
             '%d.%m.%Y %H:%M') if first_transaction else "Keine Daten verfügbar"
@@ -207,11 +201,11 @@ class DashboardAPIView(APIView):
         last_five_transactions_serializer = TransactionSerializer(last_five_transactions, many=True)
 
         transaction_assets = []
-
         for tx in last_five_transactions_serializer.data:
             asset_owned = AssetOwned.objects.get(id=tx['asset'])
             tx_date_obj = datetime.fromisoformat(tx['tx_date'])
-            tx_date_formatted = tx_date_obj.strftime('%d.%m.%Y %H:%M')
+            tx_date_obj_utc = tx_date_obj.astimezone(pytz.UTC)
+            tx_date_formatted = tx_date_obj_utc.strftime('%d.%m.%Y %H:%M')
 
             transaction_assets.append(
                 {
@@ -223,6 +217,26 @@ class DashboardAPIView(APIView):
                 }
             )
         return count_transactions, first_transaction_formatted, last_transaction_formatted, transaction_assets
+
+    def get_chart_data(self, user, asset_infos):
+        """Return all owned assets with acronym and their value in euro."""
+        # get all owned assets from all portfolios that belongs to a user
+        asset_owned = AssetOwned.objects.filter(portfolio__user=user, asset__in=asset_infos)
+        data = []
+        for owned in asset_owned:
+            data.append({
+                'asset': owned.asset.acronym.upper(),
+                'EUR': round(owned.quantity_price, 3)
+            })
+
+        # sort list ASC
+        sorted_data = sorted(data, key=lambda x: x['EUR'], reverse=True)
+
+        return sorted_data
+
+    def get_tax_data(self):
+        """TODO: get and return tax data for dashboard """
+        pass
 
     def get(self, request):
         """GET Route /api/dashboard for dashboard"""
@@ -244,8 +258,15 @@ class DashboardAPIView(APIView):
                 # get all transactions and extract necessary data
                 count_transactions, first_transaction_formatted, last_transaction_formatted, last_five_transactions = self.get_transactions_data(user=user)
 
+                # get all asset infos from database
+                asset_infos = AssetInfo.objects.all()
+
                 # get the user related balances (assets in spot and staking)
-                spot, staking = self.get_assets_in_portfolios(user)
+                spot, staking = self.get_assets_in_portfolios(user, asset_infos)
+
+                # get chart data
+                chart_data = self.get_chart_data(user, asset_infos)
+                print(chart_data)
 
                 context = {
                     # variables for stat cards
@@ -260,6 +281,10 @@ class DashboardAPIView(APIView):
                     'staking_data': staking,
                     # variable for last transactions list
                     'last_five_transactions': last_five_transactions,
+                    # variable for bar chart
+                    'chart_data': chart_data,
+                    # variable for tax_data
+                    'tax_data': {'dummy': 'dummy'}
                 }
                 return Response(data=context, status=status.HTTP_200_OK)
         except Token.DoesNotExist:

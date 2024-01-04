@@ -1,13 +1,15 @@
 # Author: Roberto Piazza
-# Date: 03.01.2023
+# Date: 04.01.2023
 
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import make_password
 from kryptotracker.models import *
 from pycoingecko import CoinGeckoAPI
+from faker import Faker
 import pandas as pd
 import random
+import pytz
 
 class Command(BaseCommand):
     help = 'Seeds the database with dummy data'
@@ -33,6 +35,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write('Seeding data...')
+        faker = Faker()
 
         # create dummy user
         pw = make_password("Test123")
@@ -132,6 +135,7 @@ class Command(BaseCommand):
 
         # create dummy transactions
         for _ in range(10):
+            random_tx_date = faker.date_time_between(start_date='-5y', end_date='now', tzinfo=pytz.UTC)
             Transaction.objects.create(
                 user=user,
                 asset=assets[random.randint(0, 3)],
@@ -143,7 +147,7 @@ class Command(BaseCommand):
                 tx_amount=random.uniform(100.0, 1000.0),
                 tx_value=random.uniform(100.0, 1000.0),
                 tx_fee=random.uniform(1.0, 10.0),
-                tx_date='2023-12-30T00:00:00Z'
+                tx_date=random_tx_date
             )
 
         self.stdout.write(self.style.SUCCESS('Data successfully created!'))

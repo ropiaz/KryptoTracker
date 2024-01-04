@@ -1,5 +1,4 @@
 import React from "react";
-import { useStateContext } from "../../contexts/ContextProvider";
 import Stats from "./Stats";
 import PortfolioAndStakingTables from "./BalanceTables";
 import LastTransactions from "./LastTransactions";
@@ -8,7 +7,6 @@ import BalanceChart from "./BalanceChart";
 import { getPortfolio } from "../../hooks/Portfolio.jsx";
 
 export default function Dashboard(){
-    const { token } = useStateContext();
     const { portfolioData, error, isLoading, isError } = getPortfolio();
 
     if (isLoading) {
@@ -27,7 +25,7 @@ export default function Dashboard(){
             <PortfolioAndStakingTables portfolioData={portfolioData} />
             <div className="row">
                 <div className="col-md-6">
-                    <BalanceChart />
+                    <BalanceChart portfolioData={portfolioData}/>
                 </div>
                 <div className="col-md-6">
                     <LastTransactions portfolioData={portfolioData} />
