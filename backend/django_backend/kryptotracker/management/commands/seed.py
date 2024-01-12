@@ -1,6 +1,9 @@
 # Author: Roberto Piazza
-# Date: 04.01.2023
+# Date: 12.01.2023
 
+import json
+import requests
+from pathlib import Path
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import make_password
@@ -33,6 +36,38 @@ class Command(BaseCommand):
                       'fully_diluted_valuation', 'roi'], axis=1)
         return df
 
+    def load_coins_from_file(self):
+        """import all assets listed on coingecko api from download json-file from 06.01.2024"""
+        path = Path(__file__).parent.absolute()
+        file_path = path / 'coingecko_coins_list.json'
+        with open(file_path, 'r', encoding='utf-8') as file:
+            data = json.load(file)
+
+            for entry in data:
+                coin_id = entry['id']
+                symbol = entry['symbol']
+                name = entry['name']
+                print(f"ID: {coin_id}, Symbol: {symbol}, Name: {name}\n")
+                AssetInfo.objects.create(
+                    fullname=entry['name'],
+                    api_id_name=entry['id'],
+                    acronym=entry['symbol'],
+                    current_price=0.0,
+                    image=''
+                )
+
+    def get_crypto_data(self, asset_id, *kwargs):
+        if len(kwargs[0]) == 0:
+            url = f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=eur&ids={asset_id}&order=market_cap_desc&per_page=250&page=1&sparkline=false&locale=de"
+        else:
+            asset_names = [name for name in kwargs[0]]
+            asset_names_str = "%2C%20".join(asset_names)
+            url = f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=eur&ids={asset_id}%2C%20{asset_names_str}&order=market_cap_desc&per_page=250&page=1&sparkline=false&locale=de"
+
+        response = requests.get(url)
+        data = response.json()
+        return data
+
     def handle(self, *args, **options):
         self.stdout.write('Seeding data...')
         faker = Faker()
@@ -49,74 +84,92 @@ class Command(BaseCommand):
         portfolio = Portfolio.objects.create(
             user=user,
             portfolio_type=portfolio_type_staking,
-            name='Spot',
+            name='Kraken',
         )
 
         portfolio2 = Portfolio.objects.create(
             user=user,
             portfolio_type=portfolio_type_spot,
-            name='Staking',
+            name='Kraken',
         )
 
-        # fetch and create dummy assets from coingecko api
-        crypto_data = self.fetch_crypto_coins()
-        api_assets = []
-        for index, row in crypto_data.iterrows():
-            api_assets.append(
-                AssetInfo.objects.create(
-                    fullname=row['name'],
-                    api_id_name=row['id'],
-                    acronym=row['symbol'],
-                    current_price=float(row['current_price']),
-                    image=row['image']
-                )
-            )
+        euro_asset = AssetInfo.objects.create(
+            fullname='Euro',
+            api_id_name='euro',
+            acronym='eur',
+            current_price=1.0,
+            image='https://upload.wikimedia.org/wikipedia/commons/5/5c/Euro_symbol_black.svg'
+        )
+
+        # create assets from coingecko api => 12004
+        self.load_coins_from_file()
+
+        asset1 = AssetInfo.objects.get(pk=random.randint(1, 12004))
+        asset2 = AssetInfo.objects.get(pk=random.randint(1, 12004))
+        asset3 = AssetInfo.objects.get(pk=random.randint(1, 12004))
+        asset4 = AssetInfo.objects.get(pk=random.randint(1, 12004))
+
+        # TODO: use function from utils
+        data = self.get_crypto_data(asset1.api_id_name, [asset2.api_id_name, asset3.api_id_name, asset4.api_id_name])
+        i = 0
+        for asset in data:
+            image = asset['image']
+            current_price = asset['current_price']
+            if i == 0:
+                asset1.image = image
+                asset1.current_price = float(current_price) if current_price is not None else 0.0
+                asset1.save()
+            if i == 1:
+                asset2.image = image
+                asset2.current_price = float(current_price) if current_price is not None else 0.0
+                asset2.save()
+            if i == 2:
+                asset3.image = image
+                asset3.current_price = float(current_price) if current_price is not None else 0.0
+                asset3.save()
+            if i == 3:
+                asset4.image = image
+                asset4.current_price = float(current_price) if current_price is not None else 0.0
+                asset4.save()
+            i += 1
 
         # create dummy assets and assign to portfolio
-        random_asset = api_assets[random.randint(0, len(api_assets) - 1)]
         random_owned = random.uniform(1.0, 100.0)
-        asset = AssetInfo.objects.get(pk=random_asset.id)
         asset_info = AssetOwned.objects.create(
             portfolio=portfolio,
-            asset=random_asset,
+            asset=asset1,
             quantity_owned=random_owned,
-            quantity_price=asset.current_price * random_owned,
+            quantity_price=asset1.current_price * random_owned,
         )
         portfolio.balance += asset_info.quantity_price
         portfolio.save()
 
-        random_asset = api_assets[random.randint(0, len(api_assets) - 1)]
         random_owned = random.uniform(1.0, 100.0)
-        asset = AssetInfo.objects.get(pk=random_asset.id)
         asset_info2 = AssetOwned.objects.create(
             portfolio=portfolio2,
-            asset=random_asset,
+            asset=asset2,
             quantity_owned=random_owned,
-            quantity_price=asset.current_price * random_owned,
+            quantity_price=asset2.current_price * random_owned,
         )
         portfolio2.balance += asset_info2.quantity_price
         portfolio2.save()
 
-        random_asset = api_assets[random.randint(0, len(api_assets) - 1)]
         random_owned = random.uniform(1.0, 100.0)
-        asset = AssetInfo.objects.get(pk=random_asset.id)
         asset_info3 = AssetOwned.objects.create(
             portfolio=portfolio2,
-            asset=random_asset,
+            asset=asset3,
             quantity_owned=random_owned,
-            quantity_price=asset.current_price * random_owned,
+            quantity_price=asset3.current_price * random_owned,
         )
         portfolio2.balance += asset_info3.quantity_price
         portfolio2.save()
 
-        random_asset = api_assets[random.randint(0, len(api_assets) - 1)]
         random_owned = random.uniform(1.0, 100.0)
-        asset = AssetInfo.objects.get(pk=random_asset.id)
         asset_info4 = AssetOwned.objects.create(
             portfolio=portfolio,
-            asset=random_asset,
+            asset=asset4,
             quantity_owned=random_owned,
-            quantity_price=asset.current_price * random_owned,
+            quantity_price=asset4.current_price * random_owned,
         )
         portfolio.balance += asset_info4.quantity_price
         portfolio.save()
@@ -128,18 +181,21 @@ class Command(BaseCommand):
 
         # create dummy transaction types
         staking_type = TransactionType.objects.create(type='Staking-Reward')
-        buy_type = TransactionType.objects.create(type='Einzahlung')
-        sent_type = TransactionType.objects.create(type='Gesendet')
+        buy_type = TransactionType.objects.create(type='Kaufen')
+        sell_type = TransactionType.objects.create(type='Verkaufen')
         trade_type = TransactionType.objects.create(type='Handel')
-        t_types = [staking_type, buy_type, sent_type, trade_type]
+        sent_type = TransactionType.objects.create(type='Gesendet')
+        deposit_type = TransactionType.objects.create(type='Einzahlung')
+        withdraw_type = TransactionType.objects.create(type='Auszahlung')
+        t_types = [staking_type, buy_type, sell_type, sent_type, trade_type, deposit_type, withdraw_type]
 
         # create dummy transactions
-        for _ in range(10):
+        for _ in range(15):
             random_tx_date = faker.date_time_between(start_date='-5y', end_date='now', tzinfo=pytz.UTC)
             Transaction.objects.create(
                 user=user,
                 asset=assets[random.randint(0, 3)],
-                tx_type=t_types[random.randint(0, 3)],
+                tx_type=t_types[random.randint(0, 4)],
                 tx_comment=comment,
                 tx_hash=f'hash{random.randint(1, 100)}',
                 tx_sender_address=f'sender{random.randint(1, 100)}',

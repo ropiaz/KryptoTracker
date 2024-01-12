@@ -17,13 +17,13 @@ function CustomTooltip({ active, payload, label }) {
 }
 
 // interactive dashboard component that shows the user assets and their value in a bar chart with filter function
-export default function BalanceChart({ portfolioData }) {
+export default function BalanceChart({ dashboardData }) {
     const [selectedAssets, setSelectedAssets] = useState([]);
     const [filteredChartData, setFilteredChartData] = useState([]);
 
     // Optionen für den Select-Component, einschließlich der "Alle" Option
     const allOption = { value: 'All', label: 'Alle Assets' };
-    const assetOptions = portfolioData?.chart_data.map(owned => ({
+    const assetOptions = dashboardData?.chart_data.map(owned => ({
         value: owned.asset,
         label: owned.asset
     }));
@@ -31,21 +31,21 @@ export default function BalanceChart({ portfolioData }) {
 
     // initialize the selection with all assets if the portfolio data object is available
     useEffect(() => {
-        if (portfolioData?.chart_data) {
+        if (dashboardData?.chart_data) {
           setSelectedAssets(assetOptions.map(option => option.value));
-          setFilteredChartData(portfolioData.chart_data);
+          setFilteredChartData(dashboardData.chart_data);
         }
-    }, [portfolioData]);
+    }, [dashboardData]);
 
     // update the filtered data when the selection changes
     useEffect(() => {
-        if (portfolioData?.chart_data) {
-            const filteredData = portfolioData.chart_data.filter(owned =>
+        if (dashboardData?.chart_data) {
+            const filteredData = dashboardData.chart_data.filter(owned =>
                 selectedAssets.includes(owned.asset)
             );
             setFilteredChartData(filteredData);
         }
-    }, [selectedAssets, portfolioData]);
+    }, [selectedAssets, dashboardData]);
 
     const handleSelectChange = selectedOptions => {
         // check whether the "All" option is selected
@@ -70,7 +70,7 @@ export default function BalanceChart({ portfolioData }) {
                   <div className="col-md-6">
                       <h5 className="card-title mb-3">Bestand nach Währung</h5>
                   </div>
-                  {portfolioData?.chart_data.length === 0 ? (
+                  {dashboardData?.chart_data.length === 0 ? (
                       <p>Keine Daten verfügbar</p>
                   ) : (
                       <div className="col-md-6 mb-3">
@@ -84,7 +84,7 @@ export default function BalanceChart({ portfolioData }) {
                       </div>
                   )}
               </div>
-              {portfolioData?.chart_data.length > 0 && (
+              {dashboardData?.chart_data.length > 0 && (
                   <ResponsiveContainer width="100%" height={300}>
                       <BarChart data={filteredChartData} margin={{top: 5, right: 30, left: 20, bottom: 25}}>
                           <CartesianGrid strokeDasharray="3 3"/>

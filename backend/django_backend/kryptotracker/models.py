@@ -1,5 +1,5 @@
 # Author: Roberto Piazza
-# Date: 03.01.2023
+# Date: 08.01.2023
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -30,10 +30,10 @@ class Portfolio(models.Model):
 class AssetInfo(models.Model):
     history = HistoricalRecords()
 
-    fullname = models.CharField(max_length=50, null=False)
-    api_id_name = models.CharField(max_length=50, null=False)
-    acronym = models.CharField(max_length=10, null=False)
-    current_price = models.FloatField(default=0.0, null=False)
+    fullname = models.CharField(max_length=255, null=False)
+    api_id_name = models.CharField(max_length=255, null=False)
+    acronym = models.CharField(max_length=100, null=False)
+    current_price = models.FloatField(default=0.0, null=True)
     image = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

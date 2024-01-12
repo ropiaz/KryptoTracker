@@ -1,29 +1,21 @@
 import React from 'react';
+import { Link } from "react-router-dom";
 import earnIcon from '../../assets/earn-stake.png';
 import receiveIcon from '../../assets/receive.png';
 import sentIcon from '../../assets/sent.png';
 import tradeIcon from '../../assets/trade.png';
-import { Link } from "react-router-dom";
 
 // Return icon img-path according to transaction type id
 const getIcon = (transaction) => {
     switch (transaction.tx_type) {
-        case 1: return earnIcon;
-        case 2: return receiveIcon;
-        case 3: return sentIcon;
-        case 4: return tradeIcon;
+        case "Staking-Reward": return earnIcon;
+        case "Kaufen": return receiveIcon;
+        case "Verkaufen": return sentIcon;
+        case "Handel": return tradeIcon;
+        case "Gesendet": return sentIcon;
+        case "Einzahlung": return earnIcon;
+        case "Auszahlung": return sentIcon;
         default: return "https://placehold.jp/18/bdbdbd/ffffff/50x50.png?text=not+found";
-    }
-}
-
-// Return transaction type in text according to transaction type id
-const getType = (transaction) => {
-    switch (transaction.tx_type) {
-        case 1: return "Staking-Reward";
-        case 2: return "Einzahlung";
-        case 3: return "Gesendet";
-        case 4: return "Handel";
-        default: return "Undefiniert";
     }
 }
 
@@ -33,21 +25,20 @@ const TransactionItem = ({ transaction }) => (
         <div className="d-flex align-items-center">
             <img src={getIcon(transaction)} alt={transaction.tx_type} style={{ marginRight: '10px', height: '45px' }} className="img-responsive" />
             <div>
-                <div>{getType(transaction)}</div>
+                <div>{transaction.tx_type}</div>
                 <div>{transaction.tx_date}</div>
             </div>
         </div>
         <div>
-            <div>{transaction.tx_amount.toFixed(3).replace('.', ',')} {transaction.asset}</div>
-            <div>{transaction.tx_value.toFixed(3).replace('.', ',')} €</div>
+            <div className="text-end">{transaction.tx_amount.toFixed(3).replace('.', ',')} {transaction.asset}</div>
+            <div className="text-end">{transaction.tx_value.toFixed(3).replace('.', ',')} €</div>
         </div>
     </div>
 );
 
 // dashboard component that shows the last five transactions
-export default function LastTransactions({ portfolioData }){
-    const lastFiveTransactions = portfolioData?.last_five_transactions;
-
+export default function LastTransactions({ dashboardData }){
+    const lastFiveTransactions = dashboardData?.last_five_transactions;
     return (
         <div className="mb-3">
             <div className="card shadow-bg">

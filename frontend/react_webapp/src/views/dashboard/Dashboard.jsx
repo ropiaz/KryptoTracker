@@ -4,10 +4,10 @@ import PortfolioAndStakingTables from "./BalanceTables";
 import LastTransactions from "./LastTransactions";
 import TaxReports from "./TaxReports";
 import BalanceChart from "./BalanceChart";
-import { getPortfolio } from "../../hooks/Portfolio.jsx";
+import { getDashboard } from "../../hooks/Portfolio.jsx";
 
 export default function Dashboard(){
-    const { portfolioData, error, isLoading, isError } = getPortfolio();
+    const { dashboardData, error, isLoading, isError } = getDashboard();
 
     if (isLoading) {
         return <p>Lädt...</p>;
@@ -21,14 +21,14 @@ export default function Dashboard(){
         <div className="container mt-3 mb-3 fadeInDown animated">
             <h2>Dashboard</h2>
 
-            <Stats portfolioData={portfolioData}/>
-            <PortfolioAndStakingTables portfolioData={portfolioData} />
+            <Stats dashboardData={dashboardData}/>
+            <PortfolioAndStakingTables dashboardData={dashboardData} />
             <div className="row">
                 <div className="col-md-6">
-                    <BalanceChart portfolioData={portfolioData}/>
+                    <BalanceChart dashboardData={dashboardData}/>
                 </div>
                 <div className="col-md-6">
-                    <LastTransactions portfolioData={portfolioData} />
+                    <LastTransactions dashboardData={dashboardData} />
                 </div>
             </div>
             <div className="">

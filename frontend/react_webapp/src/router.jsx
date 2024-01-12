@@ -8,6 +8,10 @@ import Register from "./views/guest/Register";
 import Dashboard from "./views/dashboard/Dashboard";
 import Settings from "./views/user/Settings";
 import Tax from "./views/tax/Tax";
+import AddAsset from "./views/dashboard/AddAsset.jsx";
+import AddPortfolio from "./views/dashboard/AddPortfolio.jsx";
+import Transaction from "./views/transaction/Transaction.jsx";
+import AddTransaction from "./views/transaction/AddTransaction.jsx";
 
 const router = createBrowserRouter([
     {
@@ -43,6 +47,22 @@ const router = createBrowserRouter([
             {
                 path: '/user/taxes',
                 element: <Tax />
+            },
+            {
+                path: '/user/transactions',
+                element: <Transaction />,
+            },
+            {
+                path: '/user/transactions/add',
+                element: <AddTransaction />,
+            },
+            {
+                path: '/user/add-portfolio',
+                element: <AddPortfolio />
+            },
+            {
+                path: '/user/add-asset',
+                element: <AddAsset />
             },
         ]
     },

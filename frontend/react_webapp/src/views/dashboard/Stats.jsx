@@ -14,18 +14,18 @@ const StatCard = ({ title, value, additionalInfo }) => (
 );
 
 // dashboard statistics component that includes all cards
-export default function Stats({ portfolioData }) {
-    const sumBalance = portfolioData?.sum_balance.toFixed(2).replace('.', ',');
-    const spotBalance = portfolioData?.spot_balance.toFixed(2).replace('.', ',');
-    const stakingBalance = portfolioData?.staking_balance.toFixed(2).replace('.', ',');
-    const firstTransaction = portfolioData?.first_transaction;
-    const lastTransaction = portfolioData?.last_transaction;
-    const transactionsCount = portfolioData?.transactions.count;
-    const transactionsWithCoins = portfolioData?.transactions.with_coins;
+export default function Stats({ dashboardData }) {
+    const sumBalance = dashboardData?.sum_balance.toFixed(2).replace('.', ',');
+    const spotBalance = dashboardData?.spot_balance.toFixed(2).replace('.', ',');
+    const stakingBalance = dashboardData?.staking_balance.toFixed(2).replace('.', ',');
+    const firstTransaction = dashboardData?.first_transaction;
+    const lastTransaction = dashboardData?.last_transaction;
+    const transactionsCount = dashboardData?.transactions.count;
+    const transactionsWithCoins = dashboardData?.transactions.with_coins;
 
     const stats = [
         { title: 'Gesamtwert aller Währungen', value: sumBalance + ' €', additionalInfo: null },
-        { title: 'Aktuelle Portfolio Bilanz', value: spotBalance + ' €', additionalInfo: null },
+        { title: 'Aktuelle Spot Bilanz', value: spotBalance + ' €', additionalInfo: null },
         { title: 'Aktuelle Staking Bilanz', value: stakingBalance + ' €', additionalInfo: null },
         { title: 'Erste Transaktion', value: firstTransaction, additionalInfo: null },
         { title: 'Letzte Transaktion', value: lastTransaction, additionalInfo: null },

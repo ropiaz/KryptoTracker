@@ -2,17 +2,18 @@ import React from 'react';
 
 const BilanzTableComponent = ({ title, dataset }) => {
     const totalValue = dataset.reduce((acc, item) => acc + parseFloat(item.owned_value), 0).toFixed(2).replace('.', ',');
+    const lenDataset = dataset.length;
 
     return (
         <div className="col mb-3">
           <div className="card shadow-bg">
             <div className="card-body">
               <div className="row align-items-center mb-1">
-                <div className="col-md-9">
+                <div className="col-md-8">
                   <h5 className="card-title">{title}</h5>
                   <p className="card-text mb-3">Gesamtwert: {totalValue} €</p>
                 </div>
-                <div className="col-md-3">
+                <div className="col-md-4">
                   <input type="text" className="form-control" placeholder="Suche" />
                 </div>
               </div>
@@ -28,32 +29,40 @@ const BilanzTableComponent = ({ title, dataset }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {dataset.map((item, index) => (
+                {dataset.map((item, index) => (
                     <tr key={index}>
                       <td>
-                        <img src={item.img} className="img-responsive" style={{ marginRight: '5px', height: '30px' }} alt="coin-img"/>
+                        <img src={item.img} className="img-responsive" style={{ marginRight: '5px', height: '25px' }} alt="coin"/>
                         <span>{item.acronym}</span>
                       </td>
-                      <td>{item.amount.toFixed(3).replace('.', ',')}</td>
+                      <td className={parseFloat(item.amount) < 0.0 && 'text-danger'}>{item.amount.toFixed(3).replace('.', ',')}</td>
                       <td>{item.price.toFixed(3).replace('.', ',')}</td>
-                      <td>{item.owned_value.toFixed(3).replace('.', ',')}</td>
+                      <td className={parseFloat(item.owned_value) < 0.0 && 'text-danger'}>{item.owned_value.toFixed(3).replace('.', ',')}</td>
                       <td className={item.trend.startsWith('-') ? 'text-danger' : 'text-success'}>
                         {item.trend}
                       </td>
                     </tr>
-                  ))}
+                  ))
+                }
                 </tbody>
               </table>
               </div>
               <div className="d-flex flex-column flex-md-row justify-content-between align-items-center">
-                <p>Einträge 1 bis {dataset.length} von {dataset.length}</p>
-                <nav className="">
-                  <ul className="pagination pagination-sm">
-                    <li className="page-item"><a className="page-link" href="#">Zurück</a></li>
-                    <li className="page-item"><a className="page-link active" href="#">1</a></li>
-                    <li className="page-item"><a className="page-link" href="#">Nächste</a></li>
-                  </ul>
-                </nav>
+                  {lenDataset > 0
+                      ? (
+                          <>
+                              <p>Einträge 1 bis {dataset.length} von {dataset.length}</p>
+                              <nav>
+                                  <ul className="pagination pagination-sm">
+                                      <li className="page-item"><a className="page-link" href="#">Zurück</a></li>
+                                      <li className="page-item"><a className="page-link active" href="#">1</a></li>
+                                      <li className="page-item"><a className="page-link" href="#">Nächste</a></li>
+                                  </ul>
+                              </nav>
+                          </>
+                      )
+                      : <p>Keine Einträge</p>
+                  }
               </div>
             </div>
           </div>
@@ -63,16 +72,14 @@ const BilanzTableComponent = ({ title, dataset }) => {
 
 // dashboard component that shows owned assets in spot and staking portfolio
 // TODO: Pagination max 10 on one page, Search in Datasets, Filter Columns
-export default function PortfolioAndStakingTables({ portfolioData }){
-    const spotData = portfolioData?.spot_data;
-    const stakingData = portfolioData?.staking_data;
+export default function PortfolioAndStakingTables({dashboardData}) {
+    const portfoliosData = dashboardData?.portfolios_data;
     return (
         <div className="row">
-            {spotData.length > 0 && (
-                <BilanzTableComponent dataset={spotData} title="Aktuelle Portfolio Bilanz" />
-            )}
-            {stakingData.length > 0 && (
-                <BilanzTableComponent dataset={stakingData} title="Aktuelle Staking Bilanz" />
+            {portfoliosData.length > 0 && (
+                portfoliosData.map((pData, index) => (
+                    <BilanzTableComponent key={index} dataset={pData.currencies} title={pData.name + " - " + pData.type} />
+                ))
             )}
         </div>
     );
