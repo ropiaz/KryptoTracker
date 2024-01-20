@@ -1,11 +1,12 @@
 # Author: Roberto Piazza
-# Date: 08.01.2023
+# Date: 20.01.2023
 
 # models import and django auth functions
 from django.db.models import Q
 from .models import PortfolioType, Portfolio, AssetInfo, AssetOwned, Comment, TransactionType, Transaction
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
+from django.utils import timezone
 # dependencies rest_framework
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.models import Token
@@ -15,8 +16,8 @@ from rest_framework.views import APIView
 # dependencies serializers
 from .serializers import *
 # python and other dependencies
-from .utils.crypto_data import get_currency_data, get_historical_price_at_time, convert_crypto_amount, get_crypto_data_from_coinmarketcap
-from datetime import datetime
+from .utils.crypto_data import get_currency_data, get_historical_price_at_time, convert_crypto_amount, get_crypto_data_from_coinmarketcap, get_historical_price_at_time_coingecko
+from datetime import datetime, timedelta
 import pytz
 
 
@@ -252,6 +253,7 @@ class DashboardAPIView(APIView):
         """TODO: get and return tax data for dashboard """
         pass
 
+    # TODO: get and return Tax data
     def get(self, request):
         """GET Route /api/dashboard for dashboard"""
         try:
@@ -309,18 +311,24 @@ class AssetOwnedAPIView(APIView):
     # TODO: update asset only if last updated > 30 min?
     def update_asset_info(self, asset_info):
         """Update asset info image and current price. If CoinGecko fails use webscraping and get data from coinmarkecap"""
+        if asset_info.api_id_name == 'euro':
+            return
+
         try:
+            # get data from coingecko api
             new_data = get_currency_data(api_id_name=asset_info.api_id_name)
             asset_info.current_price = new_data['current_price']
             asset_info.image = new_data['image']
             asset_info.save()
         except:
+            # get data from webscraping coinmarketcap
             data = get_crypto_data_from_coinmarketcap(crypto_name=asset_info.api_id_name)
             asset_info.current_price = data['current_price']
             asset_info.image = data['image']
             asset_info.save()
 
     def post(self, request):
+        """POST Route /api/asset-owned/ create new asset owned object."""
         token = request.auth
         token_obj = Token.objects.get(key=token)
         user = token_obj.user
@@ -337,14 +345,15 @@ class AssetOwnedAPIView(APIView):
                 new_data = get_currency_data(api_id_name=asset_info_obj.api_id_name)
 
                 # update asset infos
-                self.update_asset_info(asset_info=asset_info_obj)
+                if not quantity_price:
+                    self.update_asset_info(asset_info=asset_info_obj)
 
                 asset_owned = AssetOwned.objects.filter(portfolio=portfolio, asset=asset_info_obj).first()
                 # TODO: decide when given quantity_price is necessary
                 if asset_owned is None:
                     new_owned = AssetOwned.objects.create(
                         quantity_owned=quantity_owned,
-                        quantity_price=asset_info_obj.current_price * quantity_owned if asset_info_obj.current_price else quantity_price,
+                        quantity_price=asset_info_obj.current_price * quantity_owned if not quantity_price else quantity_price,
                         portfolio=portfolio,
                         asset=asset_info_obj
                     )
@@ -476,6 +485,10 @@ class TransactionTypeAPIView(APIView):
 
         portfolios = Portfolio.objects.filter(user=user)
         p_serializer = PortfolioSerializer(portfolios, many=True)
+
+        asset_infos = AssetInfo.objects.all().order_by('fullname')
+        a_serializer = AssetInfoSerializer(asset_infos, many=True)
+
         portfolio_data = []
         for portfolio in p_serializer.data:
             context = {
@@ -484,7 +497,7 @@ class TransactionTypeAPIView(APIView):
                 'portfolio_type': PortfolioType.objects.get(id=portfolio['portfolio_type']).type,
             }
             portfolio_data.append(context)
-        return tx_serializer.data, portfolio_data
+        return tx_serializer.data, portfolio_data, a_serializer.data
 
     def get(self, request):
         """GET Route /api/transaction-type/"""
@@ -493,10 +506,11 @@ class TransactionTypeAPIView(APIView):
             token_obj = Token.objects.get(key=token)
             user = token_obj.user
             if user is not None:
-                tx_types, portfolio_data = self.get_data_for_create(user)
+                tx_types, portfolio_data, asset_infos = self.get_data_for_create(user)
                 context = {
                     'types': tx_types,
-                    'portfolios': portfolio_data
+                    'portfolios': portfolio_data,
+                    'asset_infos': asset_infos
                 }
                 return Response(data=context, status=status.HTTP_200_OK)
         except Token.DoesNotExist:
@@ -520,7 +534,6 @@ class TransactionAPIView(APIView):
             # get data from foreign keys and format date
             asset_owned = AssetOwned.objects.get(id=tx['asset'])
             tx_type = TransactionType.objects.get(id=tx['tx_type'])
-            tx_comment = Comment.objects.get(id=tx['tx_comment'])
             tx_date_obj = datetime.fromisoformat(tx['tx_date'])
             tx_date_obj_utc = tx_date_obj.astimezone(pytz.UTC)
             tx_date_formatted = tx_date_obj_utc.strftime('%d.%m.%Y %H:%M')
@@ -536,7 +549,7 @@ class TransactionAPIView(APIView):
                     'tx_date': tx_date_formatted,
                     'tx_sender_address': tx['tx_sender_address'],
                     'tx_recipient_address': tx['tx_recipient_address'],
-                    'tx_comment': tx_comment.text,
+                    'tx_comment': '' if not tx['tx_comment'] else Comment.objects.get(id=tx['tx_comment']).text,
                 }
             )
         return txs
@@ -557,10 +570,16 @@ class TransactionAPIView(APIView):
         except Token.DoesNotExist:
             return Response(data={'detail': 'Ungültiges Token.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # TODO: update asset only if last updated > 30 min?
-    def update_asset_info(self, asset_info):
+    # TODO: update asset only if last updated > 30 min? + what if api and scraping fails?
+    def update_asset_info(self, asset_info: AssetInfo):
         """Update asset info image and current price. If CoinGecko fails use webscraping and get data from coinmarkecap"""
         if asset_info.api_id_name == 'euro':
+            return
+
+        current_time = timezone.now()
+        time_delta = timedelta(minutes=30)
+        if current_time - asset_info.updated_at < time_delta and asset_info.current_price != 0.0:
+            # print(f"{asset_info.fullname} wurde vor weniger als 30 Minuten aktualisiert.")
             return
 
         try:
@@ -574,6 +593,25 @@ class TransactionAPIView(APIView):
             asset_info.image = data['image']
             asset_info.save()
 
+    # TODO: validate data
+    def validate_data(self, user, data):
+        portfolio = Portfolio.objects.get(user=user, id=data['portfolio'])
+        tx_type = TransactionType.objects.get(id=data['transactionType'])
+        tx_date = data['transactionDate']
+        tx_asset_name = data['assetName']
+        tx_asset_acronym = data['assetAcronym']
+        tx_target_asset_name = data['targetAssetName']
+        tx_target_asset_acronym = data['targetAssetAcronym']
+        tx_amount = data['amount']
+        tx_price = data['price']
+        tx_fee = data['transactionFee']
+        tx_hash_id = data['transactionHashId']
+        tx_sender_address = data['senderAddress']
+        tx_recipient_address = data['recipientAddress']
+        tx_comment = data['comment']
+
+        print(portfolio, tx_type, tx_date, tx_asset_name)
+
     # TODO: get current currency price if tx_price is given?
     def post(self, request, *args, **kargs):
         """POST Route /api/transaction/ for creating new transactions"""
@@ -583,13 +621,14 @@ class TransactionAPIView(APIView):
             user = token_obj.user
             if user is not None:
                 print(request.data)
+
+                # self.validate_data(user, request.data)
+
+                asset_info = AssetInfo.objects.filter(id=request.data['assetId']).first()
+                target_asset_info = AssetInfo.objects.filter(id=request.data['targetAssetId']).first()
                 portfolio = Portfolio.objects.get(user=user, id=request.data['portfolio'])
                 tx_type = TransactionType.objects.get(id=request.data['transactionType'])
                 tx_date = request.data['transactionDate']
-                tx_asset_name = request.data['assetName']
-                tx_asset_acronym = request.data['assetAcronym']
-                tx_target_asset_name = request.data['targetAssetName']
-                tx_target_asset_acronym = request.data['targetAssetAcronym']
                 tx_amount = request.data['amount']
                 tx_price = request.data['price']
                 tx_fee = request.data['transactionFee']
@@ -598,125 +637,63 @@ class TransactionAPIView(APIView):
                 tx_recipient_address = request.data['recipientAddress']
                 tx_comment = request.data['comment']
 
-                msg = ""
-
-                target_asset = None
-                if tx_type.type == "Handel" or tx_type.type == "Gesendet":
-                    # check if target asset info exists and update data
-                    target_asset = AssetInfo.objects.filter(api_id_name=tx_target_asset_name, acronym=tx_target_asset_acronym).first()
-                    if target_asset is None:
-                        msg += "Kryptowährung wird nicht unterstützt.\n"
-                    self.update_asset_info(asset_info=target_asset)
-
-
-                # check if asset info exists
-                asset = AssetInfo.objects.filter(api_id_name=tx_asset_name, acronym=tx_asset_acronym).first()
-                if asset is None:
-                    msg += "Kryptowährung wird nicht unterstützt.\n"
+                if asset_info is None:
+                    return Response(data={'message': 'Kryptowährung wird nicht unterstützt.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
 
                 # update asset infos
-                self.update_asset_info(asset_info=asset)
+                self.update_asset_info(asset_info=asset_info)
 
                 # check if asset owned exists in portfolio, if not create owned asset in given portfolio
-                asset_in_portfolio = AssetOwned.objects.filter(portfolio__user=user, portfolio=portfolio, asset=asset).first()
+                asset_in_portfolio = AssetOwned.objects.filter(portfolio__user=user,
+                                                               portfolio=portfolio,
+                                                               asset=asset_info).first()
 
+                # TODO: Refactor code, check asset_in_portfolio in second if statement and reduce complexity
                 if asset_in_portfolio is None:
-                    # TODO: Refactor, combine cases if it's equal and validate
-                    # TODO: Error Handling
-                    # TODO: if EURO dont get historical data
-                    if tx_type.type == "Staking-Reward":
+                    if tx_type.type in ["Staking-Reward", "Kaufen", "Verkaufen", "Gesendet", "Einzahlung", "Auszahlung"]:
                         """
-                        add asset to portfolio with current price 
+                        add asset to portfolio with current price
                         update portfolio balance
                         create transaction object with price from given datetime
                         """
-                        # create asset in portfolio with current price and given data and update balance
-                        current_price = asset.current_price
+                        current_price = asset_info.current_price
+                        quantity_price = current_price * tx_amount
+
+                        if tx_type.type in ["Verkaufen", "Gesendet", "Auszahlung"]:
+                            tx_amount = -tx_amount
+                            quantity_price = -quantity_price
+
                         new_asset_owned = AssetOwned.objects.create(
                             quantity_owned=tx_amount,
-                            quantity_price=current_price * tx_amount,
-                            asset=asset,
+                            quantity_price=quantity_price,
+                            asset=asset_info,
                             portfolio=portfolio,
                         )
-                        portfolio.balance += new_asset_owned.quantity_price
+                        portfolio.balance += quantity_price
                         portfolio.save()
 
-                        # create transaction with date price and given data
-                        datetime_price = get_historical_price_at_time(crypto_symbol=asset.acronym, tx_date=tx_date)
+                        # get price on tx_date, if error take given tx_price
+                        datetime_price = get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
+                                                                                tx_date=tx_date) if asset_info.api_id_name != "euro" else 1.0
+                        if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                            if tx_price is None:
+                                return Response(
+                                    data={'message': 'Preis beim Handel konnte online nicht ermittelt werden, bitte eingeben.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                            datetime_price = tx_price
+
+                        # create transaction with date price and given data and if EURO don't get historical data
                         new_transaction = Transaction.objects.create(
                             user=user,
                             asset=new_asset_owned,
                             tx_type=tx_type,
-                            tx_comment='' if not tx_comment else Comment.objects.create(text=tx_comment),
+                            tx_comment=None if not tx_comment else Comment.objects.create(text=tx_comment),
                             tx_hash=tx_hash_id,
                             tx_sender_address=tx_sender_address,
                             tx_recipient_address=tx_recipient_address,
                             tx_amount=tx_amount,
-                            tx_value=datetime_price * tx_amount,
-                            tx_fee=0.0 if not tx_fee else tx_fee,
-                            tx_date=tx_date,
-                        )
-                    elif tx_type.type == "Kaufen":
-                        """
-                        add asset to chosen portfolio with current price
-                        update portfolio balance
-                        create transaction object with price from given datetime
-                        """
-                        # create asset in portfolio with current price and given data
-                        current_price = asset.current_price
-                        new_asset_owned = AssetOwned.objects.create(
-                            quantity_owned=tx_amount,
-                            quantity_price=current_price * tx_amount,
-                            asset=asset,
-                            portfolio=portfolio,
-                        )
-                        portfolio.balance += new_asset_owned.quantity_price
-                        portfolio.save()
-
-                        # create transaction with date price and given data
-                        datetime_price = get_historical_price_at_time(crypto_symbol=asset.acronym, tx_date=tx_date)
-                        new_transaction = Transaction.objects.create(
-                            user=user,
-                            asset=new_asset_owned,
-                            tx_type=tx_type,
-                            tx_comment='' if not tx_comment else Comment.objects.create(text=tx_comment),
-                            tx_hash=tx_hash_id,
-                            tx_sender_address=tx_sender_address,
-                            tx_recipient_address=tx_recipient_address,
-                            tx_amount=tx_amount,
-                            tx_value=datetime_price * tx_amount,
-                            tx_fee=0.0 if not tx_fee else tx_fee,
-                            tx_date=tx_date,
-                        )
-                    elif tx_type.type == "Verkaufen":
-                        """
-                        add asset to chosen portfolio with current price
-                        update portfolio with negative balance 
-                        create transaction object with price from given datetime
-                        """
-                        # create asset own with current price and given data
-                        current_price = asset.current_price
-                        new_asset_owned = AssetOwned.objects.create(
-                            quantity_owned=-tx_amount,
-                            quantity_price=-(current_price * tx_amount),
-                            asset=asset,
-                            portfolio=portfolio,
-                        )
-                        portfolio.balance += new_asset_owned.quantity_price
-                        portfolio.save()
-
-                        # create transaction with date price and given data
-                        datetime_price = get_historical_price_at_time(crypto_symbol=asset.acronym, tx_date=tx_date)
-                        new_transaction = Transaction.objects.create(
-                            user=user,
-                            asset=new_asset_owned,
-                            tx_type=tx_type,
-                            tx_comment='' if not tx_comment else Comment.objects.create(text=tx_comment),
-                            tx_hash=tx_hash_id,
-                            tx_sender_address=tx_sender_address,
-                            tx_recipient_address=tx_recipient_address,
-                            tx_amount=-tx_amount,
-                            tx_value=datetime_price * tx_amount,
+                            tx_value=datetime_price * abs(tx_amount),
                             tx_fee=0.0 if not tx_fee else tx_fee,
                             tx_date=tx_date,
                         )
@@ -726,32 +703,43 @@ class TransactionAPIView(APIView):
                         add both assets to chosen portfolio with current price and given data and update portfolio balance
                         subtract old asset quantity, 
                         """
-                        current_price_old_asset = asset.current_price
+                        if target_asset_info is None:
+                            return Response(data={'message': 'Ziel-Kryptowährung wird nicht unterstützt.'},
+                                            status=status.HTTP_400_BAD_REQUEST)
+                        self.update_asset_info(asset_info=target_asset_info)
+
+                        current_price_old_asset = asset_info.current_price
                         old_asset_owned = AssetOwned.objects.create(
                             quantity_owned=-tx_amount,
                             quantity_price=-(current_price_old_asset * tx_amount),
-                            asset=asset,
+                            asset=asset_info,
                             portfolio=portfolio,
                         )
                         portfolio.balance += old_asset_owned.quantity_price
                         portfolio.save()
 
-                        current_price_target_asset = target_asset.current_price
-                        target_asset_amount = convert_crypto_amount(base_crypto=asset.api_id_name, target_crypto=target_asset.acronym, amount=tx_amount)
+                        current_price_target_asset = target_asset_info.current_price
+                        target_asset_amount = convert_crypto_amount(base_crypto=asset_info.api_id_name,
+                                                                    target_crypto=target_asset_info.acronym,
+                                                                    amount=tx_amount)
 
                         if not isinstance(target_asset_amount, float) and target_asset_amount.startswith("Fehler"):
                             # conversion unsuccessful due to api error, calculate with given price data
-                            target_asset_amount = (tx_price / target_asset.current_price) * tx_amount
+                            if tx_price is None:
+                                return Response(
+                                    data={'message': 'Preis für die Umrechnung konnte online nicht ermittelt werden, bitte eingeben.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                            target_asset_amount = (tx_price / target_asset_info.current_price) * tx_amount
 
                         # check if target asset exists in portfolio
                         target_asset_owned = AssetOwned.objects.filter(portfolio__user=user,
                                                                        portfolio=portfolio,
-                                                                       asset=target_asset).first()
+                                                                       asset=target_asset_info).first()
                         if target_asset_owned is None:
                             new_asset_owned = AssetOwned.objects.create(
                                 quantity_owned=target_asset_amount,
                                 quantity_price=(current_price_target_asset * target_asset_amount),
-                                asset=target_asset,
+                                asset=target_asset_info,
                                 portfolio=portfolio,
                             )
                             portfolio.balance += new_asset_owned.quantity_price
@@ -765,166 +753,179 @@ class TransactionAPIView(APIView):
                             target_asset_owned.quantity_owned += target_asset_amount
                             target_asset_owned.save()
                             old_quantity_price = target_asset_owned.quantity_price
-                            target_asset_owned.quantity_price = target_asset.current_price * target_asset_owned.quantity_owned
+                            target_asset_owned.quantity_price = target_asset_info.current_price * target_asset_owned.quantity_owned
                             target_asset_owned.save()
                             portfolio.balance += target_asset_owned.quantity_price - old_quantity_price
                             portfolio.save()
 
+                        # get price on tx_date, if error take given tx_price
+                        datetime_price = get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
+                                                                                tx_date=tx_date) if asset_info.api_id_name != "euro" else 1.0
+                        if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                            if tx_price is None:
+                                return Response(
+                                    data={'message': 'Preis beim Handel konnte online nicht ermittelt werden, bitte eingeben.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                            datetime_price = tx_price
+
                         # create transaction with date price and given data
-                        datetime_price = get_historical_price_at_time(crypto_symbol=asset.acronym, tx_date=tx_date)
                         new_transaction = Transaction.objects.create(
                             user=user,
                             asset=old_asset_owned,
                             tx_type=tx_type,
-                            tx_comment='' if not tx_comment else Comment.objects.create(text=tx_comment),
+                            tx_comment=None if not tx_comment else Comment.objects.create(text=tx_comment),
                             tx_hash=tx_hash_id,
                             tx_sender_address=tx_sender_address,
                             tx_recipient_address=tx_recipient_address,
                             tx_amount=tx_amount,
                             tx_value=datetime_price * tx_amount,
-                            tx_fee=0.0 if not tx_fee else tx_fee,
-                            tx_date=tx_date,
-                        )
-                    elif tx_type.type == "Gesendet":
-                        """
-                        add asset with negative quantity_owned and quantity_price to portfolio
-                        subtract balance of chosen portfolio and update data 
-                        create transaction object with price from given datetime
-                        """
-                        # create asset own with current price and given data
-                        current_price = asset.current_price
-                        new_asset_owned = AssetOwned.objects.create(
-                            quantity_owned=-tx_amount,
-                            quantity_price=-(current_price * tx_amount),
-                            asset=asset,
-                            portfolio=portfolio,
-                        )
-                        portfolio.balance += new_asset_owned.quantity_price
-                        portfolio.save()
-
-                        # create transaction with date price and given data
-                        datetime_price = get_historical_price_at_time(crypto_symbol=asset.acronym, tx_date=tx_date)
-                        new_transaction = Transaction.objects.create(
-                            user=user,
-                            asset=new_asset_owned,
-                            tx_type=tx_type,
-                            tx_comment='' if not tx_comment else Comment.objects.create(text=tx_comment),
-                            tx_hash=tx_hash_id,
-                            tx_sender_address=tx_sender_address,
-                            tx_recipient_address=tx_recipient_address,
-                            tx_amount=-tx_amount,
-                            tx_value=datetime_price * tx_amount,
-                            tx_fee=0.0 if not tx_fee else tx_fee,
-                            tx_date=tx_date,
-                        )
-                    elif tx_type.type == "Einzahlung":
-                        """
-                        add euro asset info if not exists
-                        add asset to portfolio with quantity_owned
-                        update balance of chosen portfolio
-                        create transaction object with price from given datetime
-                        """
-                        # create euro asset in portfolio with given data
-                        new_asset_owned = AssetOwned.objects.create(
-                            quantity_owned=tx_amount,
-                            quantity_price=1.0 * tx_amount,
-                            asset=asset,
-                            portfolio=portfolio,
-                        )
-                        portfolio.balance += new_asset_owned.quantity_price
-                        portfolio.save()
-
-                        # create transaction with date price and given data
-                        new_transaction = Transaction.objects.create(
-                            user=user,
-                            asset=new_asset_owned,
-                            tx_type=tx_type,
-                            tx_comment='' if not tx_comment else Comment.objects.create(text=tx_comment),
-                            tx_hash=tx_hash_id,
-                            tx_sender_address=tx_sender_address,
-                            tx_recipient_address=tx_recipient_address,
-                            tx_amount=tx_amount,
-                            tx_value=1.0 * tx_amount,
-                            tx_fee=0.0 if not tx_fee else tx_fee,
-                            tx_date=tx_date,
-                        )
-                    elif tx_type.type == "Auszahlung":
-                        """
-                        add asset to portfolio with negative quantity_owned
-                        update balance of chosen portfolio
-                        create transaction object with price from given datetime
-                        """
-                        # create euro asset in portfolio with given data
-                        new_asset_owned = AssetOwned.objects.create(
-                            quantity_owned=-tx_amount,
-                            quantity_price=1.0 * (-tx_amount),
-                            asset=asset,
-                            portfolio=portfolio,
-                        )
-                        portfolio.balance += new_asset_owned.quantity_price
-                        portfolio.save()
-
-                        # create transaction with date price and given data
-                        new_transaction = Transaction.objects.create(
-                            user=user,
-                            asset=new_asset_owned,
-                            tx_type=tx_type,
-                            tx_comment='' if not tx_comment else Comment.objects.create(text=tx_comment),
-                            tx_hash=tx_hash_id,
-                            tx_sender_address=tx_sender_address,
-                            tx_recipient_address=tx_recipient_address,
-                            tx_amount=tx_amount,
-                            tx_value=1.0 * tx_amount,
                             tx_fee=0.0 if not tx_fee else tx_fee,
                             tx_date=tx_date,
                         )
                     else:
-                        msg += "Kein gültigen Transaktionstyp angegeben.\n"
+                        return Response(data={'message': 'Kein gültigen Transaktionstyp angegeben.'},
+                                        status=status.HTTP_400_BAD_REQUEST)
                 else:
-                    # TODO: Transactions if Assets exists in Portfolio
-                    if tx_type.type == "Staking-Reward":
+                    if tx_type.type in ["Staking-Reward", "Kaufen", "Verkaufen", "Gesendet", "Einzahlung", "Auszahlung"]:
                         """
-                        add asset to portfolio with current price 
+                        update asset in portfolio with new quantity and price
                         update portfolio balance
                         create transaction object with price from given datetime
                         """
-                        # create asset in portfolio with current price and given data and update balance
-                        current_price = asset.current_price
-                        asset_owned = AssetOwned.objects.get(portfolio__user=user, portfolio=portfolio, asset=asset)
-                        print(asset_owned)
-                        # new_asset_owned = AssetOwned.objects.create(
-                        #     quantity_owned=tx_amount,
-                        #     quantity_price=current_price * tx_amount,
-                        #     asset=asset,
-                        #     portfolio=portfolio,
-                        # )
-                        # portfolio.balance += new_asset_owned.quantity_price
-                        # portfolio.save()
-                        #
-                        # # create transaction with date price and given data
-                        # datetime_price = get_historical_price_at_time(crypto_symbol=asset.acronym, tx_date=tx_date)
-                        # new_transaction = Transaction.objects.create(
-                        #     user=user,
-                        #     asset=new_asset_owned,
-                        #     tx_type=tx_type,
-                        #     tx_comment='' if not tx_comment else Comment.objects.create(text=tx_comment),
-                        #     tx_hash=tx_hash_id,
-                        #     tx_sender_address=tx_sender_address,
-                        #     tx_recipient_address=tx_recipient_address,
-                        #     tx_amount=tx_amount,
-                        #     tx_value=datetime_price * tx_amount,
-                        #     tx_fee=0.0 if not tx_fee else tx_fee,
-                        #     tx_date=tx_date,
-                        # )
-                    elif tx_type.type == "Kaufen": pass
-                    elif tx_type.type == "Verkaufen": pass
-                    elif tx_type.type == "Handel": pass
-                    elif tx_type.type == "Gesendet": pass
-                    elif tx_type.type == "Einzahlung": pass
-                    elif tx_type.type == "Auszahlung": pass
-                    else:
-                        msg += "Kein gültigen Transaktionstyp angegeben.\n"
+                        current_price = asset_info.current_price
 
-                return Response(data={"msg": "ok"}, status=status.HTTP_201_CREATED)
+                        if tx_type.type in ["Verkaufen", "Gesendet", "Auszahlung"]:
+                            tx_amount = -tx_amount
+
+                        asset_in_portfolio.quantity_owned += tx_amount
+                        asset_in_portfolio.save()
+                        old_quantity_price = asset_in_portfolio.quantity_price
+                        asset_in_portfolio.quantity_price = current_price * asset_in_portfolio.quantity_owned
+                        asset_in_portfolio.save()
+                        portfolio.balance += asset_in_portfolio.quantity_price - old_quantity_price
+                        portfolio.save()
+
+                        # get price on tx_date, if error take given tx_price
+                        datetime_price = get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
+                                                                                tx_date=tx_date) if asset_info.api_id_name != "euro" else 1.0
+
+                        if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                            if tx_price is None:
+                                return Response(
+                                    data={
+                                        'message': 'Preis beim Handel konnte online nicht ermittelt werden, bitte eingeben.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                            datetime_price = tx_price
+
+                        # create transaction with date price and given data and existing asset_in_portfolio
+                        new_transaction = Transaction.objects.create(
+                            user=user,
+                            asset=asset_in_portfolio,
+                            tx_type=tx_type,
+                            tx_comment=None if not tx_comment else Comment.objects.create(text=tx_comment),
+                            tx_hash=tx_hash_id,
+                            tx_sender_address=tx_sender_address,
+                            tx_recipient_address=tx_recipient_address,
+                            tx_amount=tx_amount,
+                            tx_value=datetime_price * abs(tx_amount),
+                            tx_fee=0.0 if not tx_fee else tx_fee,
+                            tx_date=tx_date,
+                        )
+                    elif tx_type.type == "Handel":
+                        """
+                        change one currency into another
+                        update assets to chosen portfolio with current price and given data and update portfolio balance
+                        subtract old asset quantity, accumulate target asset quantity
+                        """
+                        # check if target asset info exists and update data
+                        if target_asset_info is None:
+                            return Response(data={'message': 'Ziel-Kryptowährung wird nicht unterstützt.'},
+                                            status=status.HTTP_400_BAD_REQUEST)
+                        self.update_asset_info(asset_info=target_asset_info)
+
+                        current_price_old_asset = asset_info.current_price
+                        current_price_target_asset = target_asset_info.current_price
+
+                        # update existing asset
+                        asset_in_portfolio.quantity_owned -= tx_amount
+                        asset_in_portfolio.save()
+                        old_quantity_price = asset_in_portfolio.quantity_price
+                        asset_in_portfolio.quantity_price = current_price_old_asset * asset_in_portfolio.quantity_owned
+                        asset_in_portfolio.save()
+                        portfolio.balance += asset_in_portfolio.quantity_price - old_quantity_price
+                        portfolio.save()
+
+                        # update target asset
+                        target_asset_amount = convert_crypto_amount(base_crypto=asset_info.api_id_name,
+                                                                    target_crypto=target_asset_info.acronym,
+                                                                    amount=tx_amount)
+
+                        if not isinstance(target_asset_amount, float) and target_asset_amount.startswith("Fehler"):
+                            # conversion unsuccessful due to api error, calculate with given price data
+                            if tx_price is None:
+                                return Response(
+                                    data={
+                                        'message': 'Preis für die Umrechnung konnte online nicht ermittelt werden, bitte eingeben.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                            target_asset_amount = (tx_price / target_asset_info.current_price) * tx_amount
+
+                        # check if target asset exists in portfolio
+                        target_asset_owned = AssetOwned.objects.filter(portfolio__user=user,
+                                                                       portfolio=portfolio,
+                                                                       asset=target_asset_info).first()
+                        if target_asset_owned is None:
+                            new_asset_owned = AssetOwned.objects.create(
+                                quantity_owned=target_asset_amount,
+                                quantity_price=(current_price_target_asset * target_asset_amount),
+                                asset=target_asset_info,
+                                portfolio=portfolio,
+                            )
+                            portfolio.balance += new_asset_owned.quantity_price
+                            portfolio.save()
+                        else:
+                            """
+                            accumulate quantity_owned with calculated target_asset_amount.
+                            get old quantity_price and update quantity_price with new quantity_owned and current price
+                            update portfolio balance by subtracting old_asset_owned quantity and adding new quantity
+                            """
+                            target_asset_owned.quantity_owned += target_asset_amount
+                            target_asset_owned.save()
+                            old_quantity_price = target_asset_owned.quantity_price
+                            target_asset_owned.quantity_price = target_asset_info.current_price * target_asset_owned.quantity_owned
+                            target_asset_owned.save()
+                            portfolio.balance += target_asset_owned.quantity_price - old_quantity_price
+                            portfolio.save()
+
+                        # get price on tx_date, if error take given tx_price
+                        datetime_price = get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
+                                                                                tx_date=tx_date) if asset_info.api_id_name != "euro" else 1.0
+
+                        if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                            if tx_price is None:
+                                return Response(
+                                    data={
+                                        'message': 'Preis beim Handel konnte online nicht ermittelt werden, bitte eingeben.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                            datetime_price = tx_price
+
+                        # create transaction with date price and given data
+                        new_transaction = Transaction.objects.create(
+                            user=user,
+                            asset=asset_in_portfolio,
+                            tx_type=tx_type,
+                            tx_comment=None if not tx_comment else Comment.objects.create(text=tx_comment),
+                            tx_hash=tx_hash_id,
+                            tx_sender_address=tx_sender_address,
+                            tx_recipient_address=tx_recipient_address,
+                            tx_amount=tx_amount,
+                            tx_value=datetime_price * tx_amount,
+                            tx_fee=0.0 if not tx_fee else tx_fee,
+                            tx_date=tx_date,
+                        )
+                    else:
+                        return Response(data={'message': 'Kein gültigen Transaktionstyp angegeben.'},
+                                        status=status.HTTP_400_BAD_REQUEST)
+
+                return Response(data={"message": "Transaktion erfolgreich erstellt."}, status=status.HTTP_201_CREATED)
         except Token.DoesNotExist:
             return Response(data={'detail': 'Ungültiges Token.'}, status=status.HTTP_400_BAD_REQUEST)

@@ -1,5 +1,5 @@
 # Author: Roberto Piazza
-# Date: 08.01.2023
+# Date: 20.01.2023
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -34,7 +34,7 @@ class AssetInfo(models.Model):
     api_id_name = models.CharField(max_length=255, null=False)
     acronym = models.CharField(max_length=100, null=False)
     current_price = models.FloatField(default=0.0, null=True)
-    image = models.CharField(max_length=255, null=True, blank=True)
+    image = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -75,13 +75,13 @@ class Transaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=False)
     asset = models.ForeignKey(AssetOwned, on_delete=models.CASCADE, null=False)
     tx_type = models.ForeignKey(TransactionType, on_delete=models.CASCADE, null=False)
-    tx_comment = models.ForeignKey(Comment, on_delete=models.SET_NULL, null=True, blank=True)
+    tx_comment = models.OneToOneField(Comment, on_delete=models.CASCADE, null=True, blank=True)
     tx_hash = models.CharField(max_length=255, null=True, blank=True)
     tx_sender_address = models.CharField(max_length=255, null=True, blank=True)
     tx_recipient_address = models.CharField(max_length=255, null=True, blank=True)
     tx_amount = models.FloatField(null=False)
     tx_value = models.FloatField(null=False)
-    tx_fee = models.FloatField(default=0.0, null=False)
+    tx_fee = models.FloatField(default=0.0, null=True, blank=True)
     tx_date = models.DateTimeField(null=False)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)

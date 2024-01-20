@@ -40,6 +40,7 @@ const PorfolioFormular = ({ typeData }) => {
                     setErrors([]);
                     setPortfolio({});
                     navigate('/user/dashboard');
+                    window.location.reload();
                 })
                 .catch((error) => {
                     if(error.response.status === 500) {

@@ -8,6 +8,7 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import make_password
 from kryptotracker.models import *
+from kryptotracker.utils import *
 from pycoingecko import CoinGeckoAPI
 from faker import Faker
 import pandas as pd
@@ -53,7 +54,7 @@ class Command(BaseCommand):
                     api_id_name=entry['id'],
                     acronym=entry['symbol'],
                     current_price=0.0,
-                    image=''
+                    image=entry['image']
                 )
 
     def get_crypto_data(self, asset_id, *kwargs):
@@ -101,13 +102,13 @@ class Command(BaseCommand):
             image='https://upload.wikimedia.org/wikipedia/commons/5/5c/Euro_symbol_black.svg'
         )
 
-        # create assets from coingecko api => 12004
+        # create asset infos coinmarketcap api export => the first 2000 currencies
         self.load_coins_from_file()
 
-        asset1 = AssetInfo.objects.get(pk=random.randint(1, 12004))
-        asset2 = AssetInfo.objects.get(pk=random.randint(1, 12004))
-        asset3 = AssetInfo.objects.get(pk=random.randint(1, 12004))
-        asset4 = AssetInfo.objects.get(pk=random.randint(1, 12004))
+        asset1 = AssetInfo.objects.get(pk=random.randint(1, 2495))
+        asset2 = AssetInfo.objects.get(pk=random.randint(1, 2495))
+        asset3 = AssetInfo.objects.get(pk=random.randint(1, 2495))
+        asset4 = AssetInfo.objects.get(pk=random.randint(1, 2495))
 
         # TODO: use function from utils
         data = self.get_crypto_data(asset1.api_id_name, [asset2.api_id_name, asset3.api_id_name, asset4.api_id_name])
@@ -176,9 +177,6 @@ class Command(BaseCommand):
 
         assets = [asset_info, asset_info2, asset_info3, asset_info4]
 
-        # create dummy comment
-        comment = Comment.objects.create(text='Das ist ein Dummy-Kommentar.')
-
         # create dummy transaction types
         staking_type = TransactionType.objects.create(type='Staking-Reward')
         buy_type = TransactionType.objects.create(type='Kaufen')
@@ -191,6 +189,7 @@ class Command(BaseCommand):
 
         # create dummy transactions
         for _ in range(15):
+            comment = Comment.objects.create(text=f'Das ist Dummy-Kommentar {_}.')  # create dummy comment
             random_tx_date = faker.date_time_between(start_date='-5y', end_date='now', tzinfo=pytz.UTC)
             Transaction.objects.create(
                 user=user,

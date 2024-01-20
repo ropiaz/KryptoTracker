@@ -4,8 +4,39 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useStateContext } from "../../contexts/ContextProvider.jsx";
 import { getTransactionTypes } from "../../hooks/Transaction.jsx";
+import Select from 'react-select';
+import { FixedSizeList as List } from 'react-window';
 
-const TransactionFormular = ({ transType, portfolios }) => {
+const MenuList = ({ options, children, maxHeight, getValue }) => {
+    const height = 35;
+    const value = getValue()[0]; // getValue gibt ein Array zurück, wir wollen das erste Element.
+    let initialOffset = 0;
+
+    if (value) {
+        const index = options.findIndex(option => option.value === value.value);
+        if (index >= 0) {
+            initialOffset = index * height;
+        }
+    }
+
+    // Wenn keine Kinder vorhanden sind (z.B. weil die Suche keine Treffer ergab), dann geben Sie eine entsprechende Nachricht zurück
+    if (!children || !children.length) {
+        return <div style={{ padding: '10px', textAlign: 'center' }}>Keine Treffer</div>;
+    }
+
+    return (
+        <List
+            height={maxHeight}
+            itemCount={children.length}
+            itemSize={height}
+            initialScrollOffset={initialOffset}
+        >
+            {({ index, style }) => <div style={style}>{children[index]}</div>}
+        </List>
+    );
+};
+
+const TransactionFormular = ({ transType, portfolios, assetInfos}) => {
     const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api`;
     const { token, setNotification } = useStateContext();
     const navigate = useNavigate();
@@ -13,10 +44,8 @@ const TransactionFormular = ({ transType, portfolios }) => {
     const [transaction, setTransaction] = useState({
         transactionType: transType[0].id || '',
         transactionDate: '',
-        assetName: '',
-        assetAcronym: '',
-        targetAssetName: '',
-        targetAssetAcronym: '',
+        assetId: '',
+        targetAssetId: '',
         amount: '',
         price: '',
         transactionFee: '',
@@ -26,24 +55,69 @@ const TransactionFormular = ({ transType, portfolios }) => {
         comment: '',
         portfolio: portfolios[0].id || ''
     });
+    const [selectedAsset, setSelectedAsset] = useState(null);
+    const [selectedTargetAsset, setSelectedTargetAsset] = useState(null);
+    const [selectedTransactionType, setSelectedTransactionType] = useState(transaction.transactionType);
 
     const handleChange = (e) => {
         setTransaction({ ...transaction, [e.target.name]: e.target.value });
+
+        // update selected transaction type
+        if (e.target.name === 'transactionType') {
+            setSelectedTransactionType(e.target.value);
+
+            const isTrade = transType.find(tt => tt.id.toString() === e.target.value)?.type === "Handel";
+
+            if (!isTrade) {
+                // Wenn es nicht 'Handel' ist, leeren Sie die targetAssetId und das ausgewählte TargetAsset
+                setTransaction(prev => ({ ...prev, targetAssetId: '' }));
+                setSelectedTargetAsset(null);
+            }
+        }
     };
 
+    // check if trade type is selected
+    const isTradeTransaction = Number(selectedTransactionType) === transType.find(tt => tt.type === "Handel")?.id;
+
+    // convert the asset information for use with react-select
+    const assetOptions = assetInfos.map(asset => ({
+        value: asset.id,
+        label: `${asset.fullname} (${asset.acronym})`
+    }));
+
+    const handleAssetChange = selectedOption => {
+        if (selectedOption) {
+            // user select an option
+            setSelectedAsset(selectedOption);
+            setTransaction({ ...transaction, assetId: selectedOption.value });
+        } else {
+            // user delete selection
+            setSelectedAsset(null);
+            setTransaction({ ...transaction, assetId: '' });
+        }
+    };
+
+    const handleTargetAssetChange = selectedOption => {
+        if (selectedOption) {
+            setSelectedTargetAsset(selectedOption);
+            setTransaction({ ...transaction, targetAssetId: selectedOption.value });
+        } else {
+            setSelectedTargetAsset(null);
+            setTransaction({ ...transaction, targetAssetId: '' });
+        }
+    };
+
+    // TODO: error handling, validation
     const handleSubmit = async (ev) => {
         ev.preventDefault();
-        let newErrors = [];
 
         console.log(transaction);
 
         const params = {
-            transactionType: transaction.transactionType,
+            transactionType: parseInt(transaction.transactionType),
             transactionDate: transaction.transactionDate,
-            assetName: transaction.assetName,
-            assetAcronym: transaction.assetAcronym,
-            targetAssetName: transaction.targetAssetName,
-            targetAssetAcronym: transaction.targetAssetAcronym,
+            assetId: transaction.assetId,
+            targetAssetId: parseInt(transaction.targetAssetId),
             amount: parseFloat(transaction.amount),
             price: parseFloat(transaction.price),
             transactionFee: parseFloat(transaction.transactionFee),
@@ -55,35 +129,6 @@ const TransactionFormular = ({ transType, portfolios }) => {
         }
 
         try {
-            // const requiredFields = {
-            //     transactionType: 'Transaktionstyp',
-            //     transactionDate: 'Datum und Uhrzeit',
-            //     asset: 'Kryptowährung',
-            //     amount: 'Anzahl',
-            //     price: 'Preis beim Handel',
-            // };
-            //
-            // // Check for empty fields
-            // for (const [key, value] of Object.entries(transaction)) {
-            //     if(key === 'targetAsset'       ||
-            //        key === 'transactionFee'    ||
-            //        key === 'transactionHashId' ||
-            //        key === 'senderAddress'     ||
-            //        key === 'recipientAddress'  ||
-            //        key === 'comment')
-            //     {
-            //         continue;
-            //     }
-            //     if (!value) {
-            //         newErrors.push(`Das Feld ${requiredFields[key]} darf nicht leer sein.`);
-            //     }
-            // }
-            //
-            // if (newErrors.length > 0) {
-            //     setErrors(newErrors);
-            //     return;
-            // }
-
             await axios.post(`${apiUrl}/transaction/`, params, {
                 xsrfCookieName: 'csrftoken',
                 xsrfHeaderName: 'X-CSRFToken',
@@ -96,11 +141,10 @@ const TransactionFormular = ({ transType, portfolios }) => {
                     setNotification('Transaktion erfolgreich erstellt! Weiterleitung...');
                     setErrors([]);
                     navigate('/user/transactions');
+                    window.location.reload();
                 })
                 .catch((error) => {
-                    // TODO: display error messages from backend
-                    console.log(error.data)
-                    // setErrors([error.data.error])
+                    setErrors([error.response.data.message])
                 });
         } catch (err) {
             setErrors(["Fehler beim Erstellen der Transaktion."]);
@@ -130,7 +174,7 @@ const TransactionFormular = ({ transType, portfolios }) => {
                                     className="form-select"
                                     onChange={handleChange}
                                     value={transaction.transactionType}
-                                // required
+                                    required
                             >
                                 {transType.map((pt, index) => (
                                     <option key={index} value={pt.id}>{pt.type}</option>
@@ -148,7 +192,7 @@ const TransactionFormular = ({ transType, portfolios }) => {
                                    name="transactionDate"
                                    className="form-control"
                                    onChange={handleChange}
-                                // required
+                                   required
                             />
                         </div>
                     </div>
@@ -176,63 +220,43 @@ const TransactionFormular = ({ transType, portfolios }) => {
                     <legend>Transaktionsdaten</legend>
                     <small><span style={{color: "red"}}>*</span>erforderlich</small>
                     <div className="mb-3 row">
-                        <label htmlFor="assetName" className="col-sm-3 col-form-label">
-                            Kryptowährung (Name)<span style={{color: "red"}}>*</span>
+                        <label htmlFor="asset" className="col-sm-3 col-form-label">
+                            Kryptowährung<span style={{color: "red"}}>*</span>
                         </label>
                         <div className="col-sm-9">
-                            <input type="text"
-                                   className="form-control"
-                                   id="assetName"
-                                   name="assetName"
-                                   placeholder="Beispiel: Bitcoin"
-                                   onChange={handleChange}
-                                // required
+                            <Select
+                                components={{ MenuList }}
+                                options={assetOptions}
+                                onChange={handleAssetChange}
+                                placeholder="Wählen oder Suchen Sie eine Kryptowährung: Bitcoin (btc) "
+                                id="assetId"
+                                name="assetId"
+                                isClearable
+                                isSearchable
+                                required
                             />
                         </div>
                     </div>
-                    <div className="mb-3 row">
-                        <label htmlFor="assetAcronym" className="col-sm-3 col-form-label">
-                            Kryptowährung (Symbol)<span style={{color: "red"}}>*</span>
-                        </label>
-                        <div className="col-sm-9">
-                            <input type="text"
-                                   className="form-control"
-                                   id="assetAcronym"
-                                   name="assetAcronym"
-                                   placeholder="Beispiel: BTC"
-                                   onChange={handleChange}
-                                // required
-                            />
+                    {isTradeTransaction && (
+                        <div className="mb-3 row">
+                            <label htmlFor="asset" className="col-sm-3 col-form-label">
+                                Ziel-Kryptowährung<span style={{color: "red"}}>*</span>
+                            </label>
+                            <div className="col-sm-9">
+                                <Select
+                                    components={{ MenuList }}
+                                    options={assetOptions}
+                                    onChange={handleTargetAssetChange}
+                                    placeholder="Wählen oder Suchen Sie eine Kryptowährung: Ethereum (eth) "
+                                    id="targetAssetId"
+                                    name="targetAssetId"
+                                    isClearable
+                                    isSearchable
+                                    required
+                                />
+                            </div>
                         </div>
-                    </div>
-                    <div className="mb-3 row">
-                        <label htmlFor="targetAssetName" className="col-sm-3 col-form-label">
-                            Ziel-Kryptowährung (Name)
-                        </label>
-                        <div className="col-sm-9">
-                            <input type="text"
-                                   className="form-control"
-                                   id="targetAssetName"
-                                   name="targetAssetName"
-                                   placeholder="Beispiel bei Handel: Ethereum"
-                                   onChange={handleChange}
-                            />
-                        </div>
-                    </div>
-                    <div className="mb-3 row">
-                        <label htmlFor="targetAssetAcronym" className="col-sm-3 col-form-label">
-                            Ziel-Kryptowährung (Symbol)
-                        </label>
-                        <div className="col-sm-9">
-                            <input type="text"
-                                   className="form-control"
-                                   id="targetAssetAcronym"
-                                   name="targetAssetAcronym"
-                                   placeholder="Beispiel bei Handel: ETH"
-                                   onChange={handleChange}
-                            />
-                        </div>
-                    </div>
+                    )}
                     <div className="mb-3 row">
                         <label htmlFor="amount" className="col-sm-3 col-form-label">
                             Anzahl<span style={{color: "red"}}>*</span>
@@ -244,13 +268,13 @@ const TransactionFormular = ({ transType, portfolios }) => {
                                    name="amount"
                                    placeholder="Beispiel: 0.24"
                                    onChange={handleChange}
-                                // required
+                                   required
                             />
                         </div>
                     </div>
                     <div className="mb-3 row">
                         <label htmlFor="price" className="col-sm-3 col-form-label">
-                            Preis beim Handel<span style={{color: "red"}}>*</span>
+                            Preis beim Handel
                         </label>
                         <div className="col-sm-9">
                             <input type="text"
@@ -259,7 +283,6 @@ const TransactionFormular = ({ transType, portfolios }) => {
                                    name="price"
                                    placeholder="Beispiel in EUR: 7758.20"
                                    onChange={handleChange}
-                                // required
                             />
                         </div>
                     </div>
@@ -345,8 +368,7 @@ const TransactionFormular = ({ transType, portfolios }) => {
     );
 }
 
-// add asset component to portfolio
-// TODO: create formular to add assets into portfolios
+// add transaction component
 export default function AddTransaction() {
     const {transactionTypeData, isError, isLoading, error} = getTransactionTypes();
 
@@ -360,25 +382,14 @@ export default function AddTransaction() {
 
     const types = transactionTypeData?.types;
     const portfolios = transactionTypeData?.portfolios;
-
-    // const handleFileUpload = (ev) => {
-    //     ev.preventDefault();
-    //     // Hier würden Sie die CSV-Datei verarbeiten
-    //     console.log(ev.target.files);
-    // };
+    const assetInfos = transactionTypeData?.asset_infos;
 
     return (
         <div className="container mt-3 mb-3 fadeInDown animated">
             <div className="card shadow-bg col-md-9 mx-auto">
                 <div className="card-body">
-                    {/*<form onSubmit={handleFileUpload} method="post">*/}
-                    {/*    <button type="submit" className="btn mb-3" style={{backgroundColor: '#3A1CF3', color: 'white'}}>*/}
-                    {/*        CSV-Datenimport*/}
-                    {/*        <input type="file" hidden/>*/}
-                    {/*    </button>*/}
-                    {/*</form>*/}
                     <h2>Neue Transaktion hinzufügen</h2>
-                    <TransactionFormular transType={types} portfolios={portfolios}/>
+                    <TransactionFormular transType={types} portfolios={portfolios} assetInfos={assetInfos}/>
                 </div>
             </div>
         </div>

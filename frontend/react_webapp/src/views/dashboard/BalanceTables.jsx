@@ -35,9 +35,9 @@ const BilanzTableComponent = ({ title, dataset }) => {
                         <img src={item.img} className="img-responsive" style={{ marginRight: '5px', height: '25px' }} alt="coin"/>
                         <span>{item.acronym}</span>
                       </td>
-                      <td className={parseFloat(item.amount) < 0.0 && 'text-danger'}>{item.amount.toFixed(3).replace('.', ',')}</td>
+                      <td className={parseFloat(item.amount) < 0.0 ? 'text-danger' : ''}>{item.amount.toFixed(3).replace('.', ',')}</td>
                       <td>{item.price.toFixed(3).replace('.', ',')}</td>
-                      <td className={parseFloat(item.owned_value) < 0.0 && 'text-danger'}>{item.owned_value.toFixed(3).replace('.', ',')}</td>
+                      <td className={parseFloat(item.owned_value) < 0.0 ? 'text-danger' : ''}>{item.owned_value.toFixed(3).replace('.', ',')}</td>
                       <td className={item.trend.startsWith('-') ? 'text-danger' : 'text-success'}>
                         {item.trend}
                       </td>
