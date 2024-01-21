@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getTransactions } from "../../hooks/Transaction.jsx";
 
@@ -61,19 +61,8 @@ const List = ({ data }) => {
 }
 
 // transaction history component that shows all transactions from users and can be edited
-// TODO: search & filter function, pagination, create, edit, delete, data import
+// TODO: search & filter function, pagination, edit, delete, data import
 export default function Transaction(){
-    // dummy data for transactions list
-    // const data = [
-    //     {tx_type: 'Staking', asset: 'BTC', tx_amount: 100.57, tx_value: 1000.54, tx_fee: 0.0, tx_date: '12.01.2023', tx_comment: 'Test Kommentar', tx_sender_address: 'sfASASFSADFDSAFas', tx_recipient_address: 'slsdkdnbasjhdg'},
-    //     {tx_type: 'Handel', asset: 'ETH', tx_amount: 100.57, tx_value: 1000.54, tx_fee: 0.0, tx_date: '12.01.2023', tx_comment: 'Test Kommentar', tx_sender_address: 'sfASASFSADFDSAFas', tx_recipient_address: 'slsdkdnbasjhdg'},
-    //     {tx_type: 'Staking', asset: 'ADA', tx_amount: 100.57, tx_value: 1000.54, tx_fee: 0.0, tx_date: '12.01.2023', tx_comment: 'Test Kommentar', tx_sender_address: 'sfASASFSADFDSAFas', tx_recipient_address: 'slsdkdnbasjhdg'},
-    //     {tx_type: 'Kaufen', asset: 'ADA', tx_amount: 100.57, tx_value: 1000.54, tx_fee: 0.0, tx_date: '12.01.2023', tx_comment: 'Test Kommentar', tx_sender_address: 'sfASASFSADFDSAFas', tx_recipient_address: 'slsdkdnbasjhdg'},
-    //     {tx_type: 'Verkaufen', asset: 'ETH', tx_amount: 100.57, tx_value: 1000.54, tx_fee: 0.0, tx_date: '12.01.2023', tx_comment: 'Test Kommentar', tx_sender_address: 'sfASASFSADFDSAFas', tx_recipient_address: 'slsdkdnbasjhdg'},
-    //     {tx_type: 'Staking', asset: 'KAVA', tx_amount: 100.57, tx_value: 1000.54, tx_fee: 0.0, tx_date: '12.01.2023', tx_comment: 'Test Kommentar', tx_sender_address: 'sfASASFSADFDSAFas', tx_recipient_address: 'slsdkdnbasjhdg'},
-    //     {tx_type: 'Staking', asset: 'XTZ', tx_amount: 100.57, tx_value: 1000.54, tx_fee: 0.0, tx_date: '12.01.2023', tx_comment: 'Test Kommentar', tx_sender_address: 'sfASASFSADFDSAFas', tx_recipient_address: 'slsdkdnbasjhdg'},
-    //     {tx_type: 'Handel', asset: 'DOT', tx_amount: 100.57, tx_value: 1000.54, tx_fee: 0.0, tx_date: '12.01.2023', tx_comment: 'Test Kommentar', tx_sender_address: 'sfASASFSADFDSAFas', tx_recipient_address: 'slsdkdnbasjhdg'},
-    // ];
     const navigate = useNavigate();
     const { transactionData, error, isLoading, isError } = getTransactions();
 
@@ -95,10 +84,6 @@ export default function Transaction(){
 
     }
 
-    const handleDataImport = () => {
-
-    }
-
     const handleDataExport = () => {
 
     }
@@ -112,11 +97,22 @@ export default function Transaction(){
                         <h2 className="mb-3">Transaktionshistorie</h2>
                         <div className="row">
                             <div className="col-12 col-md-auto mb-2">
-                                <button className="btn btn-success btn-sm me-2" onClick={() => {navigate('/user/transactions/add')}}>Neu</button>
-                                <button className="btn btn-secondary btn-sm me-2" onClick={handleEditTransaction} disabled>Edit</button>
-                                <button className="btn btn-danger btn-sm me-2" onClick={handleDeleteTransaction} disabled >Löschen</button>
-                                <button className="btn btn-warning btn-sm me-2" onClick={handleDataImport}>Datenimport</button>
-                                <button className="btn btn-info btn-sm" onClick={handleDataExport}>CSV <i className="bi bi-download"></i></button>
+                                <button className="btn btn-success btn-sm me-2" onClick={() => {
+                                    navigate('/user/transactions/add')
+                                }}>Neu
+                                </button>
+                                <button className="btn btn-secondary btn-sm me-2" onClick={handleEditTransaction}
+                                        disabled>Edit
+                                </button>
+                                <button className="btn btn-danger btn-sm me-2" onClick={handleDeleteTransaction}
+                                        disabled>Löschen
+                                </button>
+                                <button className="btn btn-warning btn-sm me-2" onClick={() => {
+                                    navigate('/user/transactions/import')
+                                }}>Datenimport
+                                </button>
+                                <button className="btn btn-info btn-sm" onClick={handleDataExport}>CSV <i
+                                    className="bi bi-download"></i></button>
                             </div>
                             <div className="col-12 col-md-auto ms-auto mb-3">
                                 <div className="d-flex">

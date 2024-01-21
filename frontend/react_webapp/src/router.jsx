@@ -12,6 +12,7 @@ import AddAsset from "./views/dashboard/AddAsset.jsx";
 import AddPortfolio from "./views/dashboard/AddPortfolio.jsx";
 import Transaction from "./views/transaction/Transaction.jsx";
 import AddTransaction from "./views/transaction/AddTransaction.jsx";
+import DataImport from "./views/transaction/DataImport.jsx";
 
 const router = createBrowserRouter([
     {
@@ -55,6 +56,10 @@ const router = createBrowserRouter([
             {
                 path: '/user/transactions/add',
                 element: <AddTransaction />,
+            },
+            {
+                path: '/user/transactions/import',
+                element: <DataImport />,
             },
             {
                 path: '/user/add-portfolio',

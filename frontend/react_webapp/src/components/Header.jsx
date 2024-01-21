@@ -83,13 +83,13 @@ export default function Header(){
                                 Transaktionen und Staking
                             </Link>
                             <ul className="dropdown-menu">
-                                <li><Link className="dropdown-item" to={userData?.username ? '/user/transactions' : '/login'}>Historie ansehen</Link></li>
+                                <li><Link className="dropdown-item" to={userData?.username ? '/user/transactions' : '/login'}>Transaktionsübersicht</Link></li>
                                 <li><Link className="dropdown-item" to='/'>Staking-Rewards</Link></li>
                                 <li>
                                     <hr className="dropdown-divider"/>
                                 </li>
                                 <li><Link className="dropdown-item" to={userData?.username ? '/user/transactions/add' : '/login'}>Transaktion hinzufügen</Link></li>
-                                <li><Link className="dropdown-item" to='/'>CSV-Datenimport</Link></li>
+                                <li><Link className="dropdown-item" to={userData?.username ? '/user/transactions/import' : '/login'}>CSV-Datenimport</Link></li>
                             </ul>
                         </li>
                         <li className="nav-item dropdown">

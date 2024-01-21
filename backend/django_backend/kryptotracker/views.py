@@ -1,5 +1,5 @@
 # Author: Roberto Piazza
-# Date: 20.01.2023
+# Date: 21.01.2023
 
 # models import and django auth functions
 from django.db.models import Q
@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.utils import timezone
 # dependencies rest_framework
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
@@ -18,6 +19,7 @@ from .serializers import *
 # python and other dependencies
 from .utils.crypto_data import get_currency_data, get_historical_price_at_time, convert_crypto_amount, get_crypto_data_from_coinmarketcap, get_historical_price_at_time_coingecko
 from datetime import datetime, timedelta
+import pandas as pd
 import pytz
 
 
@@ -929,3 +931,77 @@ class TransactionAPIView(APIView):
                 return Response(data={"message": "Transaktion erfolgreich erstellt."}, status=status.HTTP_201_CREATED)
         except Token.DoesNotExist:
             return Response(data={'detail': 'Ungültiges Token.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class KrakenFileImportAPIView(APIView):
+    """API View for handling csv file data import from crypto exchanges."""
+    authentication_classes = [TokenAuthentication]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Asset read in CSV : Asset Acronym for AssetInfo
+        self.coin_mapping = {
+            'XETH': 'ETH',
+            'ETH2.S': 'ETH',
+            'ETH2': 'ETH',
+            'DOT.S': 'DOT',
+            'KAVA.S': 'KAVA',
+            'XTZ.S': 'XTZ',
+            'ADA.S': 'ADA',
+        }
+
+    def post(self, request):
+        """POST Route /api/import-file/ for creating new transactions and updating portfolios from csv file"""
+        file_obj = request.FILES['csvFile']
+        if not file_obj:
+            return Response({"error": "Keine Datei hochgeladen."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            token = request.auth
+            token_obj = Token.objects.get(key=token)
+            user = token_obj.user
+            if user is not None:
+                '''
+                1. Read file, drop columns subtype and aclass, format datetime field
+                2. convert asset names from csv column "asset" to predefined asset acronym (symbol) for searching AssetInfo in database
+                3. iterate through each line and inspect data
+                '''
+                # read csv, drop unnecessary columns, format date and convert asset names to acronym
+                df = pd.read_csv(file_obj, sep=",")
+                df = df.drop(columns=['subtype', 'aclass'])
+                df['time'] = pd.to_datetime(df['time']).dt.strftime('%Y-%m-%dT%H:%M')
+                df['asset'] = df['asset'].map(self.coin_mapping).fillna(df['asset'])
+
+                for index, row in df.iterrows():
+                    tx_id = row["txid"]
+                    tx_refid = row["refid"]
+                    tx_time = row["time"]
+                    tx_type = row["type"]
+                    tx_asset_acronym = row["asset"]
+                    tx_fee = row["fee"]
+                    tx_balance = row["balance"]
+                    asset_info = AssetInfo.objects.filter(acronym=tx_asset_acronym).first()
+                    if asset_info is not None:
+                        print(asset_info)
+                    else:
+                        print(f"{tx_asset_acronym} nicht gefunden")
+
+                # create transaction with date price and given data
+                # new_transaction = Transaction.objects.create(
+                #     user=user,
+                #     asset=asset_in_portfolio,
+                #     tx_type=tx_type,
+                #     tx_comment=None if not tx_comment else Comment.objects.create(text=tx_comment),
+                #     tx_hash=tx_hash_id,
+                #     tx_sender_address=tx_sender_address,
+                #     tx_recipient_address=tx_recipient_address,
+                #     tx_amount=tx_amount,
+                #     tx_value=datetime_price * tx_amount,
+                #     tx_fee=0.0 if not tx_fee else tx_fee,
+                #     tx_date=tx_date,
+                # )
+
+                return Response(df.head().to_json(orient='records'), status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
