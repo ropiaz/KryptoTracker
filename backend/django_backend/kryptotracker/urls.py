@@ -31,8 +31,14 @@ urlpatterns = [
     path('transaction-type/<int:pk>/', views.TransactionTypeAPIView.as_view(), name='transaction-detail'),
 
     path('transaction/', views.TransactionAPIView.as_view(), name='transaction-list'),
-    path('transaction/<int:pk>/', views.TransactionAPIView.as_view(), name='transaction-detail'),
+    path('transaction/<int:pk>/', views.TransactionDetailAPIView.as_view(), name='transaction-detail'),
 
     path('file-import/', views.KrakenFileImportAPIView.as_view(), name='file-import'),
+
+    # path('exchange-api/', views.ExchangeApiAPIView.as_view(), name='exchange-api'),
+
+    # path('/tax-report/', views.TaxReportAPIView.as_view(), name='tax-report'),
+    # path('/tax-report/<int:pk>', views.TaxReportDetailAPIView.as_view(), name='tax-report-detail'),
+
     # path("user/", include(router.urls)),
 ]

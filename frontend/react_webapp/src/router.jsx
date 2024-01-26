@@ -13,6 +13,7 @@ import AddPortfolio from "./views/dashboard/AddPortfolio.jsx";
 import Transaction from "./views/transaction/Transaction.jsx";
 import AddTransaction from "./views/transaction/AddTransaction.jsx";
 import DataImport from "./views/transaction/DataImport.jsx";
+import EditTransaction from "./views/transaction/EditTransaction.jsx";
 
 const router = createBrowserRouter([
     {
@@ -56,6 +57,10 @@ const router = createBrowserRouter([
             {
                 path: '/user/transactions/add',
                 element: <AddTransaction />,
+            },
+            {
+                path: '/user/transactions/edit/:id',
+                element: <EditTransaction />,
             },
             {
                 path: '/user/transactions/import',

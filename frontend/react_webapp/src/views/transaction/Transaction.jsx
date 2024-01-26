@@ -1,8 +1,11 @@
 import React, { useState } from "react";
+import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { getTransactions } from "../../hooks/Transaction.jsx";
+import { useStateContext } from "../../contexts/ContextProvider.jsx";
 
-const List = ({ data }) => {
+const List = ({ data, onDelete }) => {
+    const navigate = useNavigate();
     return (
         <>
             <div className="table-responsive border-bottom border-black mb-3">
@@ -23,26 +26,49 @@ const List = ({ data }) => {
                     </tr>
                     </thead>
                     <tbody>
-                    {data.map((item, index) => (
-                        <tr key={index}>
-                            <td>
-                                <input type="checkbox" autoComplete="off"/>
-                            </td>
-                            <td>{item.tx_type}</td>
-                            <td>{item.asset}</td>
-                            <td>{item.tx_amount}</td>
-                            <td>{item.tx_value} €</td>
-                            <td>{item.tx_fee} €</td>
-                            <td>{item.tx_date}</td>
-                            <td>{item.tx_sender_address}</td>
-                            <td>{item.tx_recipient_address}</td>
-                            <td>{item.tx_comment}</td>
-                            <td>
-                                <Link to="#" style={{textDecoration: 'none'}} className="me-2">Ändern</Link>
-                                <Link to="#" style={{color: 'red', textDecoration: 'none'}}>Löschen</Link>
+                    {data.length === 0 && (
+                        <tr>
+                            <td colspan="11" className="py-3 text-center">
+                                <span>
+                                    Sie haben noch keine Transaktionen. Klicke Sie auf <strong>Neu</strong>, um Ihren ersten Handel hinzuzufügen
+                                    oder wählen Sie <strong>Datenimport</strong> aus, um ihre Transaktionen zu importieren.
+                                </span>
                             </td>
                         </tr>
-                    ))}
+                    )}
+                    {data.length > 0 && (
+                        data.map((item, index) => (
+                            <tr key={index}>
+                                <td>
+                                    <input type="checkbox" autoComplete="off"/>
+                                </td>
+                                <td>{item.tx_type}</td>
+                                <td>{item.asset}</td>
+                                <td>{item.tx_amount}</td>
+                                <td>{item.tx_value} €</td>
+                                <td>{item.tx_fee} €</td>
+                                <td>{item.tx_date}</td>
+                                <td>{item.tx_sender_address}</td>
+                                <td>{item.tx_recipient_address}</td>
+                                <td>{item.tx_comment}</td>
+                                <td>
+                                    <Link to="#"
+                                          style={{textDecoration: 'none'}}
+                                          className="me-2"
+                                          onClick={() => navigate(`/user/transactions/edit/${item.tx_id}`)}
+                                    >
+                                        Ändern
+                                    </Link>
+                                    <Link to="#"
+                                          style={{color: 'red', textDecoration: 'none'}}
+                                          onClick={() => onDelete(item.tx_id)}
+                                    >
+                                        Löschen
+                                    </Link>
+                                </td>
+                            </tr>
+                        ))
+                    )}
                     </tbody>
                 </table>
             </div>
@@ -60,11 +86,37 @@ const List = ({ data }) => {
     );
 }
 
+const ConfirmationModal = ({ show, onClose, onConfirm, message }) => {
+    return (
+        <div className={`modal ${show ? "show" : ""}`} style={{ display: show ? "block" : "none" }}>
+            <div className="modal-dialog">
+                <div className="modal-content">
+                    <div className="modal-header">
+                        <h5 className="modal-title">Bestätigung</h5>
+                        <button type="button" className="btn-close" onClick={onClose}></button>
+                    </div>
+                    <div className="modal-body">
+                        <p>{message}</p>
+                    </div>
+                    <div className="modal-footer">
+                        <button type="button" className="btn btn-secondary" onClick={onClose}>Abbrechen</button>
+                        <button type="button" className="btn btn-danger" onClick={onConfirm}>Löschen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // transaction history component that shows all transactions from users and can be edited
-// TODO: search & filter function, pagination, edit, delete, data import
-export default function Transaction(){
+// TODO: search & filter function, pagination, edit, data import
+export default function Transaction() {
+    const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api`;
     const navigate = useNavigate();
+    const { token, setNotification } = useStateContext();
     const { transactionData, error, isLoading, isError } = getTransactions();
+    const [showModal, setShowModal] = useState(false);
+    const [selectedTxId, setSelectedTxId] = useState(null);
 
     if (isLoading) {
         return <p>Lädt...</p>;
@@ -76,12 +128,40 @@ export default function Transaction(){
 
     const tx_data = transactionData?.transactions;
 
+     const openModal = (txId) => {
+        setSelectedTxId(txId);
+        setShowModal(true);
+    };
+
+    const closeModal = () => {
+        setShowModal(false);
+    };
+
+    const confirmDelete = () => {
+        handleDeleteTransaction(selectedTxId);
+        closeModal();
+    };
+
     const handleEditTransaction = () => {
 
     }
 
-    const handleDeleteTransaction = () => {
-
+    const handleDeleteTransaction = async (txId) => {
+        try {
+            const response = await axios.delete(`${apiUrl}/transaction/${txId}`, {
+                headers: {
+                    Authorization: `Token ${token}`
+                }
+            });
+            if (response.status === 204) {
+                setNotification("Transaktion erfolgreich gelöscht.");
+                navigate('/user/transactions');
+                window.location.reload();
+            }
+        } catch (error) {
+            setNotification("Fehler beim Löschen der Transaktion.");
+            console.error("Fehler beim Löschen der Transaktion", error);
+        }
     }
 
     const handleDataExport = () => {
@@ -126,7 +206,13 @@ export default function Transaction(){
                                 </div>
                             </div>
                         </div>
-                        <List data={tx_data}/>
+                        <List data={tx_data} onDelete={openModal}/>
+                        <ConfirmationModal
+                            show={showModal}
+                            onClose={closeModal}
+                            onConfirm={confirmDelete}
+                            message="Sind Sie sicher, dass Sie diese Transaktion löschen möchten?"
+                        />
                     </div>
                 </div>
             </div>

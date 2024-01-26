@@ -21,6 +21,7 @@ from .utils.crypto_data import get_currency_data, get_historical_price_at_time, 
 from datetime import datetime, timedelta
 import pandas as pd
 import pytz
+import requests
 
 
 class LogoutAPI(APIView):
@@ -234,17 +235,23 @@ class DashboardAPIView(APIView):
             )
         return count_transactions, first_transaction_formatted, last_transaction_formatted, transaction_assets
 
-    # TODO: represent duplicate assets as one
     def get_chart_data(self, user, asset_infos):
         """Return all owned assets with acronym and their value in euro."""
         # get all owned assets from all portfolios that belongs to a user
         asset_owned = AssetOwned.objects.filter(portfolio__user=user, asset__in=asset_infos)
-        data = []
+
+        assets_sum = {}
         for owned in asset_owned:
-            data.append({
-                'asset': owned.asset.acronym.upper(),
-                'EUR': round(owned.quantity_price, 3)
-            })
+            asset_acronym = owned.asset.acronym.upper()
+            if asset_acronym in assets_sum:
+                # add the value to the existing asset
+                assets_sum[asset_acronym] += round(owned.quantity_price, 3)
+            else:
+                # add new asset to the dictionary
+                assets_sum[asset_acronym] = round(owned.quantity_price, 3)
+
+        # create a list of dictionaries from the assets_sum dictionary
+        data = [{'asset': asset, 'EUR': value} for asset, value in assets_sum.items()]
 
         # sort list ASC
         sorted_data = sorted(data, key=lambda x: x['EUR'], reverse=True)
@@ -310,10 +317,15 @@ class AssetOwnedAPIView(APIView):
     """API View for handling CRUD operations on AssetOwned model."""
     authentication_classes = [TokenAuthentication]
 
-    # TODO: update asset only if last updated > 30 min?
     def update_asset_info(self, asset_info):
-        """Update asset info image and current price. If CoinGecko fails use webscraping and get data from coinmarkecap"""
+        """Update asset info image and current price if last updated is > 30min. If CoinGecko fails use webscraping and get data from coinmarkecap"""
         if asset_info.api_id_name == 'euro':
+            return
+
+        current_time = timezone.now()
+        time_delta = timedelta(minutes=30)
+        if current_time - asset_info.updated_at < time_delta and asset_info.current_price != 0.0:
+            # print(f"{asset_info.fullname} wurde vor weniger als 30 Minuten aktualisiert.")
             return
 
         try:
@@ -401,7 +413,7 @@ class PortfolioAPIView(APIView):
     authentication_classes = [TokenAuthentication]
 
     def transform_data(self, data):
-        """Return only id, name, type"""
+        """Return only id, name, balance, type"""
         transformed_data = []
         for value in data:
             context = {
@@ -543,6 +555,7 @@ class TransactionAPIView(APIView):
             # combine data into dict
             txs.append(
                 {
+                    'tx_id': tx['id'],
                     'tx_type': tx_type.type,
                     'asset': asset_owned.asset.acronym.upper(),
                     'tx_amount': str(round(tx['tx_amount'], 3)).replace('.', ','),
@@ -653,7 +666,7 @@ class TransactionAPIView(APIView):
 
                 # TODO: Refactor code, check asset_in_portfolio in second if statement and reduce complexity
                 if asset_in_portfolio is None:
-                    if tx_type.type in ["Staking-Reward", "Kaufen", "Verkaufen", "Gesendet", "Einzahlung", "Auszahlung"]:
+                    if tx_type.type in ["Reward", "Kaufen", "Verkaufen", "Gesendet", "Einzahlung", "Auszahlung"]:
                         """
                         add asset to portfolio with current price
                         update portfolio balance
@@ -788,7 +801,7 @@ class TransactionAPIView(APIView):
                         return Response(data={'message': 'Kein gültigen Transaktionstyp angegeben.'},
                                         status=status.HTTP_400_BAD_REQUEST)
                 else:
-                    if tx_type.type in ["Staking-Reward", "Kaufen", "Verkaufen", "Gesendet", "Einzahlung", "Auszahlung"]:
+                    if tx_type.type in ["Reward", "Kaufen", "Verkaufen", "Gesendet", "Einzahlung", "Auszahlung"]:
                         """
                         update asset in portfolio with new quantity and price
                         update portfolio balance
@@ -933,6 +946,30 @@ class TransactionAPIView(APIView):
             return Response(data={'detail': 'Ungültiges Token.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class TransactionDetailAPIView(APIView):
+    """Retrieve, update or delete a transaction instance."""
+    def get_object(self, pk):
+        try:
+            return Transaction.objects.get(pk=pk)
+        except Transaction.DoesNotExist:
+            return Response(data={'error': 'Transaktion nicht gefunden.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # def put(self, request, pk):
+    #     transaction = self.get_object(pk)
+    #     serializer = TransactionSerializer(snippet, data=request.data)
+    #     if serializer.is_valid():
+    #         serializer.save()
+    #         return Response(serializer.data)
+    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+    # TODO: decrease asset / portfolio volume when deleting transcation?
+    def delete(self, request, pk):
+        transaction = self.get_object(pk)
+        transaction.delete()
+        return Response(data={'message': 'success'}, status=status.HTTP_204_NO_CONTENT)
+
+
 class KrakenFileImportAPIView(APIView):
     """API View for handling csv file data import from crypto exchanges."""
     authentication_classes = [TokenAuthentication]
@@ -941,20 +978,69 @@ class KrakenFileImportAPIView(APIView):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # Asset read in CSV : Asset Acronym for AssetInfo
+        # coin_list = self.get_kraken_asset_list()
+        # for idx, element in coin_list.items():
+        #     print(idx, element)
+
         self.coin_mapping = {
-            'XETH': 'ETH',
-            'ETH2.S': 'ETH',
-            'ETH2': 'ETH',
-            'DOT.S': 'DOT',
-            'KAVA.S': 'KAVA',
-            'XTZ.S': 'XTZ',
-            'ADA.S': 'ADA',
+            'ADA.S':   'ADA',
+            'ALGO.S':  'ALGO',
+            'ATOM.S':  'ATOM',
+            'DOT.S':   'DOT',
+            'ETH2.S':  'ETH',
+            'FLOW.S':  'FLOW',
+            'FLOWH.S': 'FLOWH',
+            'FLR.S':   'FLR',
+            'GRT.S':   'GRT',
+            'KAVA.S':  'KAVA',
+            'KSM.S':   'KSM',
+            'LUNA.S':  'LUNA',
+            'MATIC.S': 'MATIC',
+            'MINA.S':  'MINA',
+            'SCRT.S':  'SCRT',
+            'SOL.S':   'SOL',
+            'TRX.S':   'TRX',
+            'XTZ.S':   'XTZ',
+            'XETH':    'ETH',
+            'ETH2':    'ETH',
+            'ZEUR':    'EUR',
         }
+
+        self.type_mapping = {
+            'trade':      'Handel',
+            'deposit':    'Einzahlung',
+            'withdrawal': 'Gesendet',
+            'staking':    'Reward',
+            'buy':        'Kaufen',
+            'sell':       'Verkaufen',
+        }
+
+    def get_kraken_asset_list(self):
+        url = f'https://api.kraken.com/0/public/Assets'
+
+        response = requests.get(url)
+        if response.status_code != 200:
+            return 'Fehler beim Abrufen der Daten von der API'
+
+        data = response.json()['result']
+        return data
+
+    def get_coin_pairs(self, dataframe):
+        pairs = [row['pair'] for index, row in dataframe.iterrows()]
+        joined_pairs_list = ",".join(pairs)
+        url = f'https://api.kraken.com/0/public/AssetPairs?pair={joined_pairs_list}'
+
+        response = requests.get(url)
+        if response.status_code != 200:
+            return 'Fehler beim Abrufen der Daten von der API'
+
+        data = response.json()['result']
+        return data
 
     def post(self, request):
         """POST Route /api/import-file/ for creating new transactions and updating portfolios from csv file"""
-        file_obj = request.FILES['csvFile']
-        if not file_obj:
+        csv_file = request.FILES['csvFile']
+        if not csv_file:
             return Response({"error": "Keine Datei hochgeladen."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -968,24 +1054,91 @@ class KrakenFileImportAPIView(APIView):
                 3. iterate through each line and inspect data
                 '''
                 # read csv, drop unnecessary columns, format date and convert asset names to acronym
-                df = pd.read_csv(file_obj, sep=",")
-                df = df.drop(columns=['subtype', 'aclass'])
+                df = pd.read_csv(csv_file, sep=",")
                 df['time'] = pd.to_datetime(df['time']).dt.strftime('%Y-%m-%dT%H:%M')
-                df['asset'] = df['asset'].map(self.coin_mapping).fillna(df['asset'])
 
-                for index, row in df.iterrows():
-                    tx_id = row["txid"]
-                    tx_refid = row["refid"]
-                    tx_time = row["time"]
-                    tx_type = row["type"]
-                    tx_asset_acronym = row["asset"]
-                    tx_fee = row["fee"]
-                    tx_balance = row["balance"]
-                    asset_info = AssetInfo.objects.filter(acronym=tx_asset_acronym).first()
-                    if asset_info is not None:
-                        print(asset_info)
-                    else:
-                        print(f"{tx_asset_acronym} nicht gefunden")
+                # check if it's trades or ledgers csv export
+                if "pair" in df.columns and "ordertxid" in df.columns:
+                    # it's trades.csv
+                    print("trades csv")
+                    df = df.drop(columns=['ordertype', 'margin', 'misc', 'ledgers'])
+                    df['type'] = df['type'].map(self.type_mapping).fillna(df['type'])
+                    df.insert(loc=3, column='base', value="")
+                    df.insert(loc=4, column='quote', value="")
+
+                    data = self.get_coin_pairs(dataframe=df)
+
+                    if not isinstance(data, dict) and data.startswith("Fehler"):
+                        return Response(
+                            data={
+                                'message': 'Kryptopaare konnten online nicht ermittelt werden. Versuche es später erneut'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+                    pair_separated = {}
+
+                    # assign pairs to their originals coins in a dict e.g. { 'ADAEUR': {'base': 'ADA', 'quote': 'EUR} }
+                    for k, v in data.items():
+                        pair_separated[k] = {'base': v['base'], 'quote': v['quote'] if v['quote'] != 'ZEUR' else 'EUR'}
+
+                    def assign_base_quote(row, pairs_separated):
+                        row['base'] = pairs_separated[row['pair']]['base']
+                        row['quote'] = pairs_separated[row['pair']]['quote']
+                        return row
+
+                    df = df.apply(lambda row: assign_base_quote(row, pair_separated), axis=1)
+
+                    # for idx, element in df.iterrows():
+                    #     # print(pair_separated[element['pair']]['base'], " : ", pair_separated[element['pair']]['quote'])
+                    #     # element['base'] = pair_separated[element['pair']]['base']
+                    #     # element['quote'] = pair_separated[element['pair']]['quote']
+                    #
+                    #     base = pair_separated[element['pair']]['base']
+                    #     quote = pair_separated[element['pair']]['quote']
+                    #     df.loc[idx, 'base'] = base
+                    #     df.loc[idx, 'quote'] = quote
+
+                    print(df)
+
+
+                elif "refid" in df.columns and "asset" in df.columns:
+                    # it's ledgers.csv
+                    print("ledgers csv")
+
+                    df = df.drop(columns=['subtype', 'aclass'])
+                    df['asset'] = df['asset'].map(self.coin_mapping).fillna(df['asset'])
+
+                    # for index, row in df.iterrows():
+                    #     tx_id = row["txid"]
+                    #     tx_refid = row["refid"]
+                    #     tx_time = row["time"]
+                    #     tx_type = row["type"]
+                    #     tx_asset_acronym = row["asset"]
+                    #     tx_fee = float(row["fee"])
+                    #     tx_balance = float(row["balance"])
+                    #     asset_info = AssetInfo.objects.filter(acronym=tx_asset_acronym).first()
+                    # if asset_info is not None:
+                    #     print(asset_info)
+                    # else:
+                    #     print(f"{tx_asset_acronym} nicht gefunden")
+                else:
+                    return Response({"error": "Dateiexport nicht akzeptiert."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+                portfolio_type_spot = PortfolioType.objects.filter(type="Spot").first()
+                portfolio_type_staking = PortfolioType.objects.filter(type="Staking").first()
+
+                # check if user has staking and spot portfolio with name "Kraken"
+                portfolio_spot = Portfolio.objects.filter(user=user,
+                                                          portfolio_type=portfolio_type_spot,
+                                                          name="Kraken").first()
+                portfolio_staking = Portfolio.objects.filter(user=user,
+                                                             portfolio_type=portfolio_type_staking,
+                                                             name="Kraken2").first()
+
+                # TODO: if no portfolio create those depends on tx type in csv
+
+
 
                 # create transaction with date price and given data
                 # new_transaction = Transaction.objects.create(
