@@ -1,5 +1,5 @@
 # Author: Roberto Piazza
-# Date: 20.01.2023
+# Date: 08.02.2023
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -83,5 +83,6 @@ class Transaction(models.Model):
     tx_value = models.FloatField(null=False)
     tx_fee = models.FloatField(default=0.0, null=True, blank=True)
     tx_date = models.DateTimeField(null=False)
+    status = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)

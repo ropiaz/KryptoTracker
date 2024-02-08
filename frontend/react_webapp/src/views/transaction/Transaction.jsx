@@ -19,9 +19,11 @@ const List = ({ data, onDelete }) => {
                         <th scope="col">Wert</th>
                         <th scope="col">Gebühr</th>
                         <th scope="col">Datum</th>
-                        <th scope="col">Sender-Adresse</th>
-                        <th scope="col">Empfänger-Adresse</th>
+                        <th scope="col">Transaktions-ID</th>
+                        {/*<th scope="col">Sender-Adresse</th>*/}
+                        {/*<th scope="col">Empfänger-Adresse</th>*/}
                         <th scope="col">Kommentar</th>
+                        <th scope="col">Systemstatus</th>
                         <th scope="col">Aktion</th>
                     </tr>
                     </thead>
@@ -48,9 +50,11 @@ const List = ({ data, onDelete }) => {
                                 <td>{item.tx_value} €</td>
                                 <td>{item.tx_fee} €</td>
                                 <td>{item.tx_date}</td>
-                                <td>{item.tx_sender_address}</td>
-                                <td>{item.tx_recipient_address}</td>
+                                <td>{item.tx_hash}</td>
+                                {/*<td>{item.tx_sender_address}</td>*/}
+                                {/*<td>{item.tx_recipient_address}</td>*/}
                                 <td>{item.tx_comment}</td>
+                                <td>{item.tx_status}</td>
                                 <td>
                                     <Link to="#"
                                           style={{textDecoration: 'none'}}

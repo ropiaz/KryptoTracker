@@ -202,7 +202,8 @@ class Command(BaseCommand):
                 tx_amount=random.uniform(100.0, 1000.0),
                 tx_value=random.uniform(100.0, 1000.0),
                 tx_fee=random.uniform(1.0, 10.0),
-                tx_date=random_tx_date
+                tx_date=random_tx_date,
+                status=True
             )
 
         self.stdout.write(self.style.SUCCESS('Data successfully created!'))

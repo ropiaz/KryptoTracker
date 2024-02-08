@@ -47,7 +47,6 @@ def get_historical_price_at_time(crypto_symbol: str, tx_date: str):
         return 'Fehler beim Abrufen der Daten von der API'
 
     data = response.json()
-    print(data)
     return float(data[crypto_symbol]['EUR'])
 
 
@@ -76,9 +75,6 @@ def get_historical_price_at_time_coingecko(crypto_id: str, tx_date: str):
 
     # Analyse und Extraktion des spezifischen Preises
     prices = data['prices']
-    print(data)
-    # Implementierung einer Logik, um den genauesten Preis um den Zielzeitpunkt zu finden
-    # Dies könnte eine Durchschnittsberechnung oder eine nächstgelegene Zeitstempelsuche sein
 
     # Beispiel: Rückgabe des ersten Preises im Bereich
     return prices[0][1] if prices else 'Fehler - Keine Daten verfügbar'
