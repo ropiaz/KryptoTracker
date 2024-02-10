@@ -12,6 +12,7 @@ const getIcon = (transaction) => {
         case "Kaufen": return receiveIcon;
         case "Verkaufen": return sentIcon;
         case "Handel": return tradeIcon;
+        case "Transfer": return tradeIcon;
         case "Gesendet": return sentIcon;
         case "Einzahlung": return earnIcon;
         case "Auszahlung": return sentIcon;

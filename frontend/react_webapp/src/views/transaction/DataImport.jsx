@@ -7,6 +7,7 @@ const FileImportFormular = () => {
     const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api`;
     const { token, setNotification } = useStateContext();
     const navigate = useNavigate();
+    const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState([]);
     const [csvFile, setCsvFile] = useState(null);
 
@@ -23,6 +24,7 @@ const FileImportFormular = () => {
             return;
         }
 
+        setIsLoading(true);
         const formData = new FormData();
         formData.append("csvFile", csvFile);
 
@@ -43,74 +45,75 @@ const FileImportFormular = () => {
             if(response.status === 200){
                 console.log(response.data);
                 setErrors([]);
-                setNotification("Du bastard");
-                // navigate('/user/dashboard');
-                // window.location.reload();
+                setNotification("Datenimport erfolgreich.");
+                navigate('/user/dashboard');
+                window.location.reload();
             }
 
         } catch (error) {
             setErrors([error.response.data.message]);
             console.error("Fehler beim Senden der Datei", error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
     return (
         <>
-            {errors.length > 0 && (
-                <div className="alert alert-danger">
-                    {errors.map((error, index) => (
-                        <div key={index}>{error}</div>
-                    ))}
+            {isLoading ? (
+                <div className="d-flex justify-content-center align-items-center">
+                    <div className="spinner me-2"></div>
+                    <span>Lädt... Daten werden verarbeitet, bitte um Geduld.</span>
                 </div>
-            )}
+            ) : (
+                <>
+                    {errors.length > 0 && (
+                        <div className="alert alert-danger">
+                            {errors.map((error, index) => (
+                                <div key={index}>{error}</div>
+                            ))}
+                        </div>
+                    )}
 
-            <form onSubmit={handleFileUpload} method="post">
-                <div className="col-12 col-md-auto ms-auto mb-3">
-                    <label htmlFor="exchange" className="form-label">Wähle eine Börse aus:</label>
-                    <div className="d-flex">
-                        <select name="exchange" className="form-select" style={{width: 'auto'}}>
-                            <option defaultValue="kraken">Kraken</option>
-                            <option value="binance" disabled>Binance</option>
-                            <option value="bitpanda" disabled>Bitpanda</option>
-                            <option value="coinbase" disabled>Coinbase</option>
-                        </select>
-                    </div>
-                </div>
+                    <form onSubmit={handleFileUpload} method="post">
+                        <div className="col-12 col-md-auto ms-auto mb-3">
+                            <label htmlFor="exchange" className="form-label">Wähle eine Börse aus:</label>
+                            <div className="d-flex">
+                                <select name="exchange" className="form-select" style={{width: 'auto'}}>
+                                    <option defaultValue="kraken">Kraken</option>
+                                    <option value="binance" disabled>Binance</option>
+                                    <option value="bitpanda" disabled>Bitpanda</option>
+                                    <option value="coinbase" disabled>Coinbase</option>
+                                </select>
+                            </div>
+                        </div>
 
-                {/*<div className="mb-3 col-md-6">*/}
-                {/*    <label htmlFor="csvFile" className="form-label">Wähle die CSV-Datei aus:</label>*/}
-                {/*    <input type="file"*/}
-                {/*           id="csvFile"*/}
-                {/*           name="csvFile"*/}
-                {/*           className="form-control form-control-sm"*/}
-                {/*           onChange={handleFileChange}*/}
-                {/*    />*/}
-                {/*</div>*/}
+                        <div className="mb-3 col-md-6">
+                            <label htmlFor="csvFile" className="form-label">Wähle die trades.csv Datei aus:</label>
+                            <input type="file"
+                                   id="csvFile"
+                                   name="csvFile"
+                                   className="form-control form-control-sm"
+                                   onChange={handleFileChange}
+                            />
+                        </div>
 
-                <div className="mb-3 col-md-6">
-                    <label htmlFor="csvFile" className="form-label">Wähle die trades.csv Datei aus:</label>
-                    <input type="file"
-                           id="csvFile"
-                           name="csvFile"
-                           className="form-control form-control-sm"
-                           onChange={handleFileChange}
-                    />
-                </div>
+                        <div className="mb-3 col-md-6">
+                            <label htmlFor="csvFile" className="form-label">Wähle die ledgers.csv Datei aus:</label>
+                            <input type="file"
+                                   id="csvFile"
+                                   name="csvFile"
+                                   className="form-control form-control-sm"
+                                   onChange={handleFileChange}
+                            />
+                        </div>
 
-                <div className="mb-3 col-md-6">
-                    <label htmlFor="csvFile" className="form-label">Wähle die ledgers.csv Datei aus:</label>
-                    <input type="file"
-                           id="csvFile"
-                           name="csvFile"
-                           className="form-control form-control-sm"
-                           onChange={handleFileChange}
-                    />
-                </div>
-
-                <button type="submit" className="btn mb-3" style={{backgroundColor: '#3A1CF3', color: 'white'}}>
-                    Einlesen
-                </button>
-            </form>
+                        <button type="submit" className="btn mb-3" style={{backgroundColor: '#3A1CF3', color: 'white'}}>
+                            Einlesen
+                        </button>
+                    </form>
+                </>
+                )}
         </>
     );
 }

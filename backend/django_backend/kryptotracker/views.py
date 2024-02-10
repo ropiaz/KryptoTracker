@@ -1252,6 +1252,8 @@ class KrakenFileImportAPIView(APIView):
                         if tx_exists:
                             continue
 
+                        print(idx)
+
                         asset_info_base = AssetInfo.objects.filter(acronym=element['base']).first()
                         asset_info_quote = AssetInfo.objects.filter(acronym=element['quote']).first()
 
@@ -1419,6 +1421,7 @@ class KrakenFileImportAPIView(APIView):
                             })
                             continue
                         else:
+                            print(index)
                             self.update_asset_info(asset_info=asset_info)
 
                             amount = element['amount']
