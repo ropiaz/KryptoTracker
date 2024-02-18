@@ -21,7 +21,7 @@ const BilanzTableComponent = ({ title, dataset }) => {
                                      className="me-2"
                                      onChange={() => setShowNullValues(!showNullValues)}
                               />
-                            Kleine Beträge (&lt; 0.00099) ausblenden
+                            Kleine Beträge (&lt; 0,00099) ausblenden
                           </span>
                       </div>
                       <div className="col-md-4">

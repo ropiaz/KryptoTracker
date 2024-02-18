@@ -6,6 +6,34 @@ import { useStateContext } from "../../contexts/ContextProvider.jsx";
 
 const List = ({ data, onDelete }) => {
     const navigate = useNavigate();
+
+    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
+
+    const sortedData = React.useMemo(() => {
+        let sortableItems = [...data];
+        if (sortConfig !== null) {
+            sortableItems.sort((a, b) => {
+                if (a[sortConfig.key] < b[sortConfig.key]) {
+                    return sortConfig.direction === 'ascending' ? -1 : 1;
+                }
+                if (a[sortConfig.key] > b[sortConfig.key]) {
+                    return sortConfig.direction === 'ascending' ? 1 : -1;
+                }
+                return 0;
+            });
+        }
+        return sortableItems;
+    }, [data, sortConfig]);
+
+    const requestSort = (key) => {
+        let direction = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
+
     return (
         <>
             <div className="table-responsive border-bottom border-black mb-3">
@@ -13,22 +41,94 @@ const List = ({ data, onDelete }) => {
                     <thead>
                     <tr>
                         <th scope="col"></th>
-                        <th scope="col">Typ</th>
-                        <th scope="col">Asset</th>
-                        <th scope="col">Menge</th>
-                        <th scope="col">Wert</th>
-                        <th scope="col">Gebühr</th>
-                        <th scope="col">Datum</th>
-                        <th scope="col">Transaktions-ID</th>
+                        <th scope="col">
+                            Typ
+                            <button className="btn" onClick={() => requestSort('tx_type')}>
+                                {sortConfig.key === 'tx_type' && sortConfig.direction === 'ascending' ?
+                                    <i className="bi bi-arrow-down"></i> :
+                                    <i className="bi bi-arrow-up"></i>}
+                            </button>
+                        </th>
+                        <th scope="col">
+                            Asset
+                            <button className="btn" onClick={() => requestSort('asset')}>
+                                {sortConfig.key === 'asset' && sortConfig.direction === 'ascending' ?
+                                    <i className="bi bi-arrow-down"></i> :
+                                    <i className="bi bi-arrow-up"></i>}
+                            </button>
+                        </th>
+                        <th scope="col">
+                            Menge
+                            <button className="btn" onClick={() => requestSort('tx_amount')}>
+                                {sortConfig.key === 'tx_amount' && sortConfig.direction === 'ascending' ?
+                                    <i className="bi bi-arrow-down"></i> :
+                                    <i className="bi bi-arrow-up"></i>}
+                            </button>
+                        </th>
+                        <th scope="col">
+                            Wert
+                            <button className="btn" onClick={() => requestSort('tx_value')}>
+                                {sortConfig.key === 'tx_value' && sortConfig.direction === 'ascending' ?
+                                    <i className="bi bi-arrow-down"></i> :
+                                    <i className="bi bi-arrow-up"></i>}
+                            </button>
+                        </th>
+                        <th scope="col">
+                            Gebühr
+                            <button className="btn" onClick={() => requestSort('tx_fee')}>
+                                {sortConfig.key === 'tx_fee' && sortConfig.direction === 'ascending' ?
+                                    <i className="bi bi-arrow-down"></i> :
+                                    <i className="bi bi-arrow-up"></i>}
+                            </button>
+                        </th>
+                        <th scope="col">
+                            Datum
+                            <button className="btn" onClick={() => requestSort('tx_date')}>
+                                {sortConfig.key === 'tx_date' && sortConfig.direction === 'ascending' ?
+                                    <i className="bi bi-arrow-down"></i> :
+                                    <i className="bi bi-arrow-up"></i>}
+                            </button>
+                        </th>
+                        <th scope="col">
+                            Transaktions-ID
+                            <button className="btn" onClick={() => requestSort('tx_hash')}>
+                                {sortConfig.key === 'tx_hash' && sortConfig.direction === 'ascending' ?
+                                    <i className="bi bi-arrow-down"></i> :
+                                    <i className="bi bi-arrow-up"></i>}
+                            </button>
+                        </th>
+                        <th scope="col">
+                            Kommentar
+                            <button className="btn" onClick={() => requestSort('tx_comment')}>
+                                {sortConfig.key === 'tx_comment' && sortConfig.direction === 'ascending' ?
+                                    <i className="bi bi-arrow-down"></i> :
+                                    <i className="bi bi-arrow-up"></i>}
+                            </button>
+                        </th>
+                        <th scope="col">
+                            Systemstatus
+                            <button className="btn" onClick={() => requestSort('tx_status')}>
+                                {sortConfig.key === 'tx_status' && sortConfig.direction === 'ascending' ?
+                                    <i className="bi bi-arrow-down"></i> :
+                                    <i className="bi bi-arrow-up"></i>}
+                            </button>
+                        </th>
+                        {/*<th scope="col">Typ</th>*/}
+                        {/*<th scope="col">Asset</th>*/}
+                        {/*<th scope="col">Menge</th>*/}
+                        {/*<th scope="col">Wert</th>*/}
+                        {/*<th scope="col">Gebühr</th>*/}
+                        {/*<th scope="col">Datum</th>*/}
+                        {/*<th scope="col">Transaktions-ID</th>*/}
                         {/*<th scope="col">Sender-Adresse</th>*/}
                         {/*<th scope="col">Empfänger-Adresse</th>*/}
-                        <th scope="col">Kommentar</th>
-                        <th scope="col">Systemstatus</th>
-                        <th scope="col">Aktion</th>
+                        {/*<th scope="col">Kommentar</th>*/}
+                        {/*<th scope="col">Systemstatus</th>*/}
+                        <th scope="col mx-1">Aktion</th>
                     </tr>
                     </thead>
                     <tbody>
-                    {data.length === 0 && (
+                    {sortedData.length === 0 && (
                         <tr>
                             <td colspan="11" className="py-3 text-center">
                                 <span>
@@ -38,8 +138,8 @@ const List = ({ data, onDelete }) => {
                             </td>
                         </tr>
                     )}
-                    {data.length > 0 && (
-                        data.map((item, index) => (
+                    {sortedData.length > 0 && (
+                        sortedData.map((item, index) => (
                             <tr key={index}>
                                 <td>
                                     <input type="checkbox" autoComplete="off"/>
@@ -77,7 +177,7 @@ const List = ({ data, onDelete }) => {
                 </table>
             </div>
             <div className="d-flex flex-column flex-md-row justify-content-between align-items-center">
-                <p>Einträge 1 bis {data.length} von {data.length}</p>
+                <p>Einträge 1 bis {sortedData.length} von {sortedData.length}</p>
                 <nav className="">
                     <ul className="pagination pagination-sm">
                         <li className="page-item"><a className="page-link" href="#">Zurück</a></li>
