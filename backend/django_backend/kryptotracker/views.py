@@ -1,10 +1,10 @@
 # Author: Roberto Piazza
-# Date: 12.02.2023
+# Date: 25.03.2023
 from pathlib import Path
 
 # models import and django auth functions
 from django.db.models import Q
-from .models import PortfolioType, Portfolio, AssetInfo, AssetOwned, Comment, TransactionType, Transaction, TaxReport
+from .models import PortfolioType, Portfolio, AssetInfo, AssetOwned, Comment, TransactionType, Transaction, TaxReport, ExchangeAPIs
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.utils import timezone
@@ -1822,14 +1822,14 @@ class TaxReportAPIView(APIView):
             'trade_value': round(trade_value, 3) if trade_value > 0.0 else "0,00",
             'fee_trade_value': round(fee_trade_value, 3) if fee_trade_value > 0.0 else "0,00",
             'tax_free_trade_limit': '800,00',
-            'total_trade_value': trade_value - fee_trade_value - 800.00 if reward_value + fee_trade_value > 800.00 else '0,00',
+            'total_trade_value': trade_value - fee_trade_value if reward_value > 600.00 else '0,00',
             # rewards data
             'len_of_rewards': len(rewards),
             'rewards_tx': rewards,
             'reward_value': round(reward_value, 3) if reward_value > 0.0 else "0,00",
             'fee_reward_value': round(fee_reward_value, 3) if fee_reward_value > 0.0 else "0,00",
             'tax_free_reward_limit': '256,00',
-            'total_reward_value': reward_value-fee_reward_value-256.00 if reward_value+fee_reward_value > 256.00 else '0,00',
+            'total_reward_value': reward_value - fee_reward_value if reward_value > 256.00 else '0,00',
             'img_path': Path(Path(__file__).parent / "templates/logo.png").absolute(),
         }
 
@@ -1931,3 +1931,42 @@ class TaxReportAPIView(APIView):
             else:
                 return Response(data={"error": "Irgendetwas ist schief gelaufen. Bitte versuche es erneut."},
                                 status=status.HTTP_400_BAD_REQUEST)
+
+
+class ExchangeApiAPIView(APIView):
+    """API View for handling adding api keys to database from exchanges and retrieving new data in interval (once a day)."""
+    authentication_classes = [TokenAuthentication]
+
+    def post(self, request):
+        token = request.auth
+        token_obj = Token.objects.get(key=token)
+        user = token_obj.user
+        if user is not None:
+            api_key = request.data['apiKey']
+            api_sec = request.data['apiSec']
+            exchange = request.data['exchange']
+
+            if exchange == "Kraken":
+                exchange_api = ExchangeAPIs.objects.filter(user=user, api_key=api_key, api_sec=api_sec).exists()
+                if not exchange_api:
+                    exchange_api = ExchangeAPIs.objects.create(
+                        user=user,
+                        api_key=api_key,
+                        api_sec=api_sec,
+                        exchange_name=exchange
+                    )
+                    return Response(data={'message': 'success'}, status=status.HTTP_200_OK)
+                return Response(data={'message': 'API-Schlüssel zur Börse bereits vorhanden.'}, status=status.HTTP_202_ACCEPTED)
+            else:
+                exchange_api = ExchangeAPIs.objects.filter(user=user, api_key=api_key).exists()
+                if not exchange_api:
+                    exchange_api = ExchangeAPIs.objects.create(
+                        user=user,
+                        api_key=api_key,
+                        exchange_name=exchange
+                    )
+                    return Response(data={'message': 'success'}, status=status.HTTP_200_OK)
+                return Response(data={'message': 'API-Schlüssel zur Börse bereits vorhanden.'}, status=status.HTTP_202_ACCEPTED)
+
+
+

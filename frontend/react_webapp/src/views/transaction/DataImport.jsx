@@ -129,7 +129,6 @@ const FileImportFormular = () => {
 }
 
 // component to import the export csv file from crypto exchanges
-// TODO: create formular to import transactions via csv data
 export default function DataImport() {
     return (
         <div className="container mt-3 mb-3 fadeInDown animated">

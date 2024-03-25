@@ -1,5 +1,5 @@
 # Author: Roberto Piazza
-# Date: 08.02.2023
+# Date: 25.03.2023
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -96,5 +96,14 @@ class TaxReport(models.Model):
     year = models.IntegerField(null=True)
     start_date = models.DateField(null=True)
     end_date = models.DateField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=False)
+    updated_at = models.DateTimeField(auto_now=True, null=False)
+
+
+class ExchangeAPIs(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=False)
+    api_key = models.CharField(max_length=255, null=False)
+    api_sec = models.CharField(max_length=255, null=True)
+    exchange_name = models.CharField(max_length=255, null=False)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)

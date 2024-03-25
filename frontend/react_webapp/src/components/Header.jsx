@@ -73,8 +73,8 @@ export default function Header(){
                                 Portfolio und Assets
                             </Link>
                             <ul className="dropdown-menu">
-                                <li><Link className="dropdown-item" to={userData?.username ? '/user/add-portfolio' : '/login'}>Portfolio hinzufügen</Link></li>
-                                <li><Link className="dropdown-item" to={userData?.username ? '/user/add-asset' : '/login'}>Assets hinzufügen</Link></li>
+                                <li><Link className="dropdown-item" to={userData?.username ? '/user/portfolio/add' : '/login'}>Portfolio hinzufügen</Link></li>
+                                <li><Link className="dropdown-item" to={userData?.username ? '/user/asset/add' : '/login'}>Assets hinzufügen</Link></li>
                             </ul>
                         </li>
                         <li className="nav-item dropdown">
@@ -117,11 +117,13 @@ export default function Header(){
                                 <ul className="dropdown-menu">
                                     <li><Link to={'/user/settings'} className="dropdown-item">Settings</Link></li>
                                     <li className="dropdown-divider"></li>
+                                    <li><Link to={'/user/api/add'} className="dropdown-item">API Schlüssel</Link></li>
+                                    <li className="dropdown-divider"></li>
                                     <li><Link to="#" className="dropdown-item" onClick={onLogout}>Logout</Link></li>
                                 </ul>
                             </div>
                         </div>
-                        )}
+                    )}
                     {!userData && (
                             <div className="d-flex ms-auto">
                                 <button type="button"
