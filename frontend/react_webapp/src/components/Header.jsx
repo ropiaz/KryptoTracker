@@ -117,7 +117,7 @@ export default function Header(){
                                 <ul className="dropdown-menu">
                                     <li><Link to={'/user/settings'} className="dropdown-item">Settings</Link></li>
                                     <li className="dropdown-divider"></li>
-                                    <li><Link to={'/user/api/add'} className="dropdown-item">API Schlüssel</Link></li>
+                                    <li><Link to={'/user/api'} className="dropdown-item">API Schlüssel</Link></li>
                                     <li className="dropdown-divider"></li>
                                     <li><Link to="#" className="dropdown-item" onClick={onLogout}>Logout</Link></li>
                                 </ul>

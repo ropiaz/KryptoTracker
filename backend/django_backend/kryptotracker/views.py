@@ -1937,6 +1937,26 @@ class ExchangeApiAPIView(APIView):
     """API View for handling adding api keys to database from exchanges and retrieving new data in interval (once a day)."""
     authentication_classes = [TokenAuthentication]
 
+    def get(self, request):
+        try:
+            token = request.auth
+            token_obj = Token.objects.get(key=token)
+            user = token_obj.user
+            if user is not None:
+                exchange_apis_list = ExchangeAPIs.objects.filter(user=user)
+                if exchange_apis_list.exists():
+                    context = [
+                        {
+                            'api_key': exchange_api.api_key,
+                            'api_sec': exchange_api.api_sec,
+                            'exchange_name': exchange_api.exchange_name
+                        } for exchange_api in exchange_apis_list
+                    ]
+                    return Response(data=context, status=status.HTTP_200_OK)
+                return Response(data=[], status=status.HTTP_204_NO_CONTENT)
+        except Token.DoesNotExist:
+            return Response(data="Token nicht gefunden.", status=status.HTTP_404_NOT_FOUND)
+
     def post(self, request):
         token = request.auth
         token_obj = Token.objects.get(key=token)

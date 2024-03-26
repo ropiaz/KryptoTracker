@@ -14,7 +14,8 @@ import Transaction from "./views/transaction/Transaction.jsx";
 import AddTransaction from "./views/transaction/AddTransaction.jsx";
 import DataImport from "./views/transaction/DataImport.jsx";
 import EditTransaction from "./views/transaction/EditTransaction.jsx";
-import AddAPI from "./views/user/AddApi.jsx";
+import AddAPI from "./views/exchange-api/AddApi.jsx";
+import ShowApi from "./views/exchange-api/ShowApi.jsx";
 
 
 const router = createBrowserRouter([
@@ -75,6 +76,10 @@ const router = createBrowserRouter([
             {
                 path: '/user/asset/add',
                 element: <AddAsset />
+            },
+            {
+                path: '/user/api',
+                element: <ShowApi />
             },
             {
                 path: '/user/api/add',
