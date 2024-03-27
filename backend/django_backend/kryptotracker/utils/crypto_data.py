@@ -1,12 +1,10 @@
 # Author: Roberto Piazza
-# Date: 20.01.2023
-
-from pycoingecko import CoinGeckoAPI
-import pandas as pd
+# Date: 27.03.2023
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
-
+from django.utils import timezone
+from kryptotracker.models import AssetInfo
 
 def get_currency_data(api_id_name: str):
     """
@@ -80,10 +78,6 @@ def get_historical_price_at_time_coingecko(crypto_id: str, tx_date: str):
     return prices[0][1] if prices else 'Fehler - Keine Daten verfügbar'
 
 
-# # Beispielaufruf der Funktion
-# print(get_historical_price_at_time_coingecko('ethereum', '2024-01-15T12:00'))
-#
-
 def convert_crypto_amount(base_crypto: str, target_crypto: str, amount: float):
     """
     Convert a specified amount of one cryptocurrency to its equivalent in another cryptocurrency.
@@ -104,11 +98,6 @@ def convert_crypto_amount(base_crypto: str, target_crypto: str, amount: float):
         return 'Fehler - Umrechnungskurs nicht verfügbar'
 
     return float(amount * price)
-
-
-# Beispielaufruf: Konvertiere 1.5 Bitcoin (BTC) in Ethereum (ETH)
-# converted_amount = convert_crypto_amount('litecoin', 'xmr', 10)
-# print(converted_amount)
 
 
 def get_crypto_data_from_coinmarketcap(crypto_name: str):
@@ -161,6 +150,94 @@ def get_crypto_data_from_coinmarketcap(crypto_name: str):
         'symbol': symbol
     }
 
-# # Beispielaufruf
-# price = get_crypto_data_from_coinmarketcap('kava')
-# print(price)
+
+def update_asset_info(asset_info: AssetInfo):
+    """Update asset info image and current price. If CoinGecko fails use webscraping and get data from coinmarkecap"""
+    if asset_info.api_id_name == 'euro':
+        return
+
+    current_time = timezone.now()
+    time_delta = timedelta(minutes=30)
+    if current_time - asset_info.updated_at < time_delta and asset_info.current_price != 0.0:
+        return
+
+    try:
+        new_data = get_currency_data(api_id_name=asset_info.api_id_name)
+        asset_info.current_price = new_data['current_price']
+        asset_info.image = new_data['image']
+        asset_info.save()
+    except:
+        data = get_crypto_data_from_coinmarketcap(crypto_name=asset_info.api_id_name)
+        asset_info.current_price = data['current_price']
+        asset_info.image = data['image']
+        asset_info.save()
+
+
+def map_kraken_coins():
+    """Return kraken asset symbols (acronym) mapped to originals in CoinGecko or CoinMarketCap"""
+    return {
+        'ADA.S': 'ADA',
+        'ALGO.S': 'ALGO',
+        'ATOM.S': 'ATOM',
+        'ATOM21.S': 'ATOM',
+        'DOT.S': 'DOT',
+        'DOT28.S': 'DOT',
+        'ETH2': 'ETH',
+        'ETH2.S': 'ETH',
+        # 'ETHW': 'ETH',
+        'FLOW.S': 'FLOW',
+        'FLOW14.S': 'FLOW',
+        'FLOWH.S': 'FLOW',
+        'FLR.S': 'FLR',
+        'GRT.S': 'GRT',
+        'GRT28.S': 'GRT',
+        'KAVA.S': 'KAVA',
+        'KAVA21.S': 'KAVA',
+        'KSM.S': 'KSM',
+        'KSM07.S': 'KSM',
+        'LUNA.S': 'LUNA',
+        'MATIC.S': 'MATIC',
+        'MATIC04.S': 'MATIC',
+        'MINA.S': 'MINA',
+        'SCRT.S': 'SCRT',
+        'SCRT21.S': 'SCRT',
+        'SOL.S': 'SOL',
+        'SOL03.S': 'SOL',
+        'USDC.M': 'USDC',
+        'USDT.M': 'USDT',
+        'XBT.M': 'BTC',
+        'TRX.S': 'TRX',
+        'XBT': 'BTC',
+        'XETC': 'ETC',
+        'XETH': 'ETH',
+        'XTZ.S': 'XTZ',
+        'XLTC': 'LTC',
+        'XMLN': 'MLN',
+        'XREP': 'REP',
+        'XXBT': 'BTC',
+        'XXDG': 'XDG',
+        'XXLM': 'XLM',
+        'XXMR': 'XMR',
+        'XXRP': 'XRP',
+        'XZEC': 'ZEC',
+        'ZAUD': 'AUD',
+        'ZCAD': 'CAD',
+        'ZEUR': 'EUR',
+        'ZGBP': 'GBP',
+        'ZJPY': 'JPY',
+        'ZUSD': 'USD',
+    }
+
+
+def map_kraken_tx_types():
+    """Return mapped transaction types from kraken csv export for database predefined types"""
+    return {
+        'trade': 'Handel',
+        'deposit': 'Einzahlung',
+        'withdrawal': 'Gesendet',
+        'staking': 'Reward',
+        'earn': 'Reward',
+        'buy': 'Kaufen',
+        'sell': 'Verkaufen',
+        'transfer': 'Transfer'
+    }
