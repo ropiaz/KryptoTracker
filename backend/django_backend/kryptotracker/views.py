@@ -25,6 +25,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import pytz
 import io
+import hashlib
 from xhtml2pdf import pisa
 
 
@@ -1064,7 +1065,7 @@ class KrakenFileImportAPIView(APIView):
         return dataframe
 
     def post(self, request):
-        """POST Route /api/import-file/ for creating new transactions and updating portfolios from csv file"""
+        """POST Route /api/file-import-kraken/ for creating new transactions and updating portfolios from csv files"""
         csv_file = request.FILES['csvFile']
         csv_file2 = request.FILES['csvFile2']
         if not csv_file or not csv_file2:
@@ -1495,3 +1496,130 @@ class ExchangeApiAPIView(APIView):
                     )
                     return Response(data={'message': 'success'}, status=status.HTTP_200_OK)
                 return Response(data={'message': 'API-Schlüssel zur Börse bereits vorhanden.'}, status=status.HTTP_202_ACCEPTED)
+
+
+class KilnFileImportAPIView(APIView):
+    """API View for handling csv file data import from ledger provider Kiln for ETH staking."""
+    authentication_classes = [TokenAuthentication]
+
+    def get_or_create_portfolio(self, user: User):
+        """Check if user has staking portfolio with name "Ledger (Kiln) otherwise create one and return it."""
+        try:
+            portfolio_type_staking = PortfolioType.objects.filter(type="Staking").first()
+            portfolio_staking = Portfolio.objects.filter(user=user,
+                                                         portfolio_type=portfolio_type_staking,
+                                                         name="Ledger (Kiln)").first()
+
+            if portfolio_staking is None:
+                portfolio_staking = Portfolio.objects.create(user=user,
+                                                             name='Ledger (Kiln)',
+                                                             balance=0.0,
+                                                             portfolio_type=portfolio_type_staking)
+
+            return portfolio_staking
+        except Portfolio.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+    def transform_dataframe(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        """Format Date column, rename columns Balance and Reward and return new dataframe."""
+        # Try to convert the date and only keep the lines where the conversion is successful
+        dataframe['Date'] = pd.to_datetime(dataframe['Date'], errors='coerce').dt.strftime('%Y-%m-%dT%H:%M')
+        # Now remove all rows with NaT in the "Date" column
+        dataframe = dataframe.dropna(subset=['Date'])
+        dataframe = dataframe.drop(columns=['Reward rate'])
+        dataframe = dataframe.rename(columns={
+            'Rewards (in ETH)': 'Rewards',
+            'Balance (in ETH)': 'Balance'
+        })
+
+        return dataframe
+
+    def create_tx(self, asset_info: AssetInfo, asset_owned: AssetOwned, user: User, portfolio: Portfolio, element: pd.Series):
+        """Get price on Date with coingecko, if error try cryotocompare api otherwise 0.0 and create transaction."""
+        datetime_price = crypto_data.get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
+                                                                            tx_date=element['Date'])
+        if not isinstance(datetime_price, float) and datetime_price is None:
+            datetime_price = crypto_data.get_historical_price_at_time(tx_date=element['Date'],
+                                                                      crypto_symbol=asset_info.acronym)
+            if not isinstance(datetime_price, float) and datetime_price is None:
+                datetime_price = 0.0
+
+        type_tx = TransactionType.objects.get(type='Reward')
+        comment_text = f"{portfolio.name}-Import: {element['Rewards']} {asset_info.acronym}"
+        comment = Comment.objects.create(text=comment_text)
+        Transaction.objects.create(
+            user=user,
+            asset=asset_owned,
+            tx_type=type_tx,
+            tx_comment=comment,
+            tx_hash=hashlib.sha256(element['Date'].encode()).hexdigest(),
+            tx_amount=float(element['Rewards']),
+            tx_value=datetime_price * float(element['Rewards']),
+            tx_fee=0.0,
+            tx_date=element['Date'],
+            status=False if datetime_price == 0.0 else True
+        )
+
+    def post(self, request):
+        """POST Route /api/file-import-kiln/ for creating new transactions and updating portfolios from csv file"""
+        csv_file = request.FILES['csvFile']
+        if not csv_file:
+            return Response({"error": "Keine Datei hochgeladen."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            token = request.auth
+            token_obj = Token.objects.get(key=token)
+            user = token_obj.user
+            if user is not None:
+                df = pd.read_csv(csv_file, sep=",")
+
+                error_msg = ""
+                if "Date" not in df.columns and "Rewards( in ETH)" not in df.columns and "Balance( in ETH)" not in df.columns:
+                    error_msg += "Dateiexport nicht akzeptiert.\n"
+                if error_msg != "":
+                    return Response({"error": error_msg}, status=status.HTTP_400_BAD_REQUEST)
+
+                count_rows = len(df.index)
+                if count_rows == 0:
+                    return Response({"message": "CSV-Export enthält keine Einträge."},
+                                    status=status.HTTP_202_ACCEPTED)
+
+                df = self.transform_dataframe(dataframe=df)
+                portfolio = self.get_or_create_portfolio(user=user)
+
+                asset_owned = None
+                asset_info = AssetInfo.objects.filter(acronym="ETH", fullname="Ethereum").first()
+                if asset_info is not None:
+                    crypto_data.update_asset_info(asset_info=asset_info)
+                    asset_owned = AssetOwned.objects.filter(asset=asset_info, portfolio=portfolio).first()
+                    if asset_owned is None:
+                        asset_owned = AssetOwned.objects.create(
+                            asset=asset_info,
+                            portfolio=portfolio,
+                            quantity_owned=0.0,
+                            quantity_price=0.0,
+                        )
+
+                # iterate through dataframe and insert new staking transactions
+                for index, element in df.iterrows():
+                    tx_hash_value = hashlib.sha256(element['Date'].encode()).hexdigest()
+                    tx_exists = Transaction.objects.filter(user=user, tx_hash=tx_hash_value).exists()
+                    if tx_exists:
+                        continue
+
+                    print(index)
+
+                    self.create_tx(asset_info=asset_info, asset_owned=asset_owned, user=user,
+                                   portfolio=portfolio, element=element)
+
+                    # take last data entry for updating balance and price of asset_owned
+                    if index == len(df.index)-1:
+                        old_quantity_price = asset_owned.quantity_price
+                        asset_owned.quantity_owned = float(element["Balance"])
+                        asset_owned.quantity_price = float(element["Balance"]) * asset_info.current_price
+                        asset_owned.save()
+                        portfolio.balance += asset_owned.quantity_price - old_quantity_price
+                        portfolio.save()
+                return Response({"message": "OK"}, status=status.HTTP_200_OK)
+        except Token.DoesNotExist:
+            return Response({'detail': 'Ungültiges Token.'}, status=status.HTTP_400_BAD_REQUEST)

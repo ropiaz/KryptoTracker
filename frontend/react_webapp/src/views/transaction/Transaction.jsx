@@ -113,17 +113,6 @@ const List = ({ data, onDelete }) => {
                                     <i className="bi bi-arrow-up"></i>}
                             </button>
                         </th>
-                        {/*<th scope="col">Typ</th>*/}
-                        {/*<th scope="col">Asset</th>*/}
-                        {/*<th scope="col">Menge</th>*/}
-                        {/*<th scope="col">Wert</th>*/}
-                        {/*<th scope="col">Gebühr</th>*/}
-                        {/*<th scope="col">Datum</th>*/}
-                        {/*<th scope="col">Transaktions-ID</th>*/}
-                        {/*<th scope="col">Sender-Adresse</th>*/}
-                        {/*<th scope="col">Empfänger-Adresse</th>*/}
-                        {/*<th scope="col">Kommentar</th>*/}
-                        {/*<th scope="col">Systemstatus</th>*/}
                         <th scope="col mx-1">Aktion</th>
                     </tr>
                     </thead>
@@ -150,9 +139,7 @@ const List = ({ data, onDelete }) => {
                                 <td>{item.tx_value} €</td>
                                 <td>{item.tx_fee} €</td>
                                 <td>{item.tx_date}</td>
-                                <td>{item.tx_hash}</td>
-                                {/*<td>{item.tx_sender_address}</td>*/}
-                                {/*<td>{item.tx_recipient_address}</td>*/}
+                                <td>{item.tx_hash.substring(0, 19)}</td>
                                 <td>{item.tx_comment}</td>
                                 <td>{item.tx_status}</td>
                                 <td>
