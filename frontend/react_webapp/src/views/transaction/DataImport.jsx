@@ -11,6 +11,7 @@ const FileImportFormular = () => {
     const [errors, setErrors] = useState([]);
     const [csvFile, setCsvFile] = useState(null);
     const [csvFile2, setCsvFile2] = useState(null);
+    const [exchange, setExchange] = useState('kraken');
 
     const handleFileChange = (e) => {
         if (e.target.files) {
@@ -24,10 +25,19 @@ const FileImportFormular = () => {
         }
     };
 
+    const handleSelect = (ev) => {
+        setExchange(ev.target.value);
+    }
+
     const handleFileUpload = async (ev) => {
         ev.preventDefault();
-        if (!csvFile || !csvFile2) {
+        if (exchange === "kraken" && (!csvFile || !csvFile2)) {
             setErrors(["Bitte wählen Sie die ledgers.csv und trades.csv Dateien aus."]);
+            return;
+        }
+
+        if (exchange !== "kraken" && !csvFile) {
+            setErrors([`Bitte wählen Sie die Export CSV-Datei von ${exchange.toUpperCase()} aus.`]);
             return;
         }
 
@@ -37,7 +47,7 @@ const FileImportFormular = () => {
         formData.append("csvFile2", csvFile2);
 
         try {
-            const response = await axios.post(`${apiUrl}/file-import/`, formData, {
+            const response = await axios.post(`${apiUrl}/file-import-${exchange}/`, formData, {
                 xsrfCookieName: 'csrftoken',
                 xsrfHeaderName: 'X-CSRFToken',
                 headers: {
@@ -89,8 +99,9 @@ const FileImportFormular = () => {
                         <div className="col-12 col-md-auto ms-auto mb-3">
                             <label htmlFor="exchange" className="form-label">Wähle eine Börse aus:</label>
                             <div className="d-flex">
-                                <select name="exchange" className="form-select" style={{width: 'auto'}}>
-                                    <option defaultValue="kraken">Kraken</option>
+                                <select name="exchange" className="form-select" style={{width: 'auto'}} onChange={handleSelect} value={exchange}>
+                                    <option value="kraken">Kraken</option>
+                                    <option value="kiln">Kiln</option>
                                     <option value="binance" disabled>Binance</option>
                                     <option value="bitpanda" disabled>Bitpanda</option>
                                     <option value="coinbase" disabled>Coinbase</option>
@@ -98,32 +109,55 @@ const FileImportFormular = () => {
                             </div>
                         </div>
 
-                        <div className="mb-3 col-md-6">
-                            <label htmlFor="csvFile" className="form-label">Wähle die trades.csv Datei aus:</label>
-                            <input type="file"
-                                   id="csvFile"
-                                   name="csvFile"
-                                   className="form-control form-control-sm"
-                                   onChange={handleFileChange}
-                            />
-                        </div>
+                        {exchange === "kraken" ?
+                            (
+                                <>
+                                    <div className="mb-3 col-md-6">
+                                        <label htmlFor="csvFile" className="form-label">Wähle die trades.csv Datei
+                                            aus:
+                                        </label>
+                                        <input type="file"
+                                               id="csvFile"
+                                               name="csvFile"
+                                               className="form-control form-control-sm"
+                                               onChange={handleFileChange}
+                                        />
+                                    </div>
 
-                        <div className="mb-3 col-md-6">
-                            <label htmlFor="csvFile" className="form-label">Wähle die ledgers.csv Datei aus:</label>
-                            <input type="file"
-                                   id="csvFile2"
-                                   name="csvFile2"
-                                   className="form-control form-control-sm"
-                                   onChange={handleFileChange2}
-                            />
-                        </div>
+                                    <div className="mb-3 col-md-6">
+                                        <label htmlFor="csvFile" className="form-label">Wähle die ledgers.csv Datei
+                                            aus:
+                                        </label>
+                                        <input type="file"
+                                               id="csvFile2"
+                                               name="csvFile2"
+                                               className="form-control form-control-sm"
+                                               onChange={handleFileChange2}
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="mb-3 col-md-6">
+                                        <label htmlFor="csvFile" className="form-label">Wähle die CSV-Datei aus:</label>
+                                        <input type="file"
+                                               id="csvFile"
+                                               name="csvFile"
+                                               className="form-control form-control-sm"
+                                               onChange={handleFileChange}
+                                        />
+                                    </div>
+                                </>
+                            )
+                        }
+
 
                         <button type="submit" className="btn mb-3" style={{backgroundColor: '#3A1CF3', color: 'white'}}>
                             Einlesen
                         </button>
                     </form>
                 </>
-                )}
+            )}
         </>
     );
 }
