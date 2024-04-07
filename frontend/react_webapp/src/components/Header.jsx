@@ -1,20 +1,28 @@
 import React from 'react';
+import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 import { useStateContext } from "../contexts/ContextProvider";
-import useAuthUserToken from "../utils/useAuthUserToken";
-import axios from "axios";
+import { getUser } from "../hooks/Auth.jsx";
 
 export default function Header(){
     const navigate = useNavigate();
     const { setToken, token, setNotification } = useStateContext();
-    const { userData, setUserData } = useAuthUserToken(token);
+    const { userData, isLoading, isError } = getUser(token);
+
+    if (isLoading) {
+        return "";
+    }
+
+    if (isError) {
+        return <p>Es gab einen Fehler beim Laden der Benutzerdaten.</p>;
+    }
 
     const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
     const onLogout = async (ev) => {
         ev.preventDefault();
         try {
-            axios.post(`${apiUrl}/logout/`, {}, {
+            await axios.post(`${apiUrl}/logout/`, {}, {
                 xsrfCookieName: 'csrftoken',
                 xsrfHeaderName: 'X-CSRFToken',
                 headers: {
@@ -25,17 +33,15 @@ export default function Header(){
                 .then((res) => {
                     setNotification('Logout erfolgreich! Weiterleitung...');
                     setToken(null);
-                    setUserData(null);
                     navigate('/');
                 })
                 .catch((error) => {
                     setToken(null);
-                    setUserData(null);
                     navigate('/');
                 });
         } catch (error) {
+            setNotification('Fehler beim Logout.');
             setToken(null);
-            setUserData(null);
             navigate('/');
         }
     }
@@ -54,53 +60,69 @@ export default function Header(){
                             <Link className="nav-link" to="/">Home</Link>
                         </li>
                         <li className="nav-item">
-                            <Link className="nav-link" to={userData?.username ? `/${userData.username}` : '/'}>Dashboard</Link>
+                            <Link className="nav-link"
+                                  to={userData?.username ? '/user/dashboard' : '/login'}>Dashboard</Link>
                         </li>
                         <li className="nav-item">
-                            <Link className="nav-link" to='/'>Steuerbericht</Link>
+                            <Link className="nav-link"
+                                  to={userData?.username ? '/user/taxes' : '/login'}>Steuerbericht</Link>
                         </li>
                         <li className="nav-item dropdown">
-                            <Link to="#" className="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <Link to="#" className="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"
+                                  aria-expanded="false">
+                                Portfolio und Assets
+                            </Link>
+                            <ul className="dropdown-menu">
+                                <li><Link className="dropdown-item" to={userData?.username ? '/user/add-portfolio' : '/login'}>Portfolio hinzufügen</Link></li>
+                                <li><Link className="dropdown-item" to={userData?.username ? '/user/add-asset' : '/login'}>Assets hinzufügen</Link></li>
+                            </ul>
+                        </li>
+                        <li className="nav-item dropdown">
+                            <Link to="#" className="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"
+                                  aria-expanded="false">
                                 Transaktionen und Staking
                             </Link>
                             <ul className="dropdown-menu">
-                                <li><Link className="dropdown-item" to='/'>Historie ansehen</Link></li>
+                                <li><Link className="dropdown-item" to={userData?.username ? '/user/transactions' : '/login'}>Historie ansehen</Link></li>
                                 <li><Link className="dropdown-item" to='/'>Staking-Rewards</Link></li>
-                                <li><hr className="dropdown-divider" /></li>
-                                <li><Link className="dropdown-item" to='/'>Transaktion hinzufügen</Link></li>
+                                <li>
+                                    <hr className="dropdown-divider"/>
+                                </li>
+                                <li><Link className="dropdown-item" to={userData?.username ? '/user/transactions/add' : '/login'}>Transaktion hinzufügen</Link></li>
                                 <li><Link className="dropdown-item" to='/'>CSV-Datenimport</Link></li>
                             </ul>
                         </li>
                         <li className="nav-item dropdown">
-                            <Link to="#" className="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <Link to="#" className="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"
+                                  aria-expanded="false">
                                 Wissen
                             </Link>
                             <ul className="dropdown-menu">
                                 <li><Link className="dropdown-item" to='/'>News@KryptoTracker</Link></li>
                                 <li><Link className="dropdown-item" to='/'>Rund um Krypto-Steuer</Link></li>
-                                <li><hr className="dropdown-divider" /></li>
+                                <li>
+                                    <hr className="dropdown-divider"/>
+                                </li>
                                 <li><Link className="dropdown-item" to='/'>Something else here</Link></li>
                             </ul>
                         </li>
                     </ul>
-                    {userData?.username
-                        ?
-                        <>
-                            <div className="d-flex ms-auto">
-                                <div className="dropdown">
-                                    <button className="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        Hallo, {userData.username}
-                                    </button>
-                                    <ul className="dropdown-menu">
-                                        <li><Link to={`/${userData.username}/settings`} className="dropdown-item">Settings</Link></li>
-                                        <li className="dropdown-divider"></li>
-                                        <li><Link to="#" className="dropdown-item" onClick={onLogout}>Logout</Link></li>
-                                    </ul>
-                                </div>
+                    {userData && (
+                        <div className="d-flex ms-auto">
+                            <div className="dropdown">
+                                <button className="btn btn-light dropdown-toggle" type="button"
+                                        data-bs-toggle="dropdown" aria-expanded="false">
+                                    Hallo, {userData?.username}
+                                </button>
+                                <ul className="dropdown-menu">
+                                    <li><Link to={'/user/settings'} className="dropdown-item">Settings</Link></li>
+                                    <li className="dropdown-divider"></li>
+                                    <li><Link to="#" className="dropdown-item" onClick={onLogout}>Logout</Link></li>
+                                </ul>
                             </div>
-                        </>
-                        :
-                        <>
+                        </div>
+                        )}
+                    {!userData && (
                             <div className="d-flex ms-auto">
                                 <button type="button"
                                         className="login-button me-2"
@@ -115,7 +137,7 @@ export default function Header(){
                                     Registrieren
                                 </button>
                             </div>
-                        </>
+                        )
                     }
                 </div>
             </div>

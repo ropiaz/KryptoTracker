@@ -1,6 +1,6 @@
 import React from 'react';
 import logo from '../../assets/Logo_KryptoTracker.png';
-import useLogin from "../../utils/useLogin";
+import { login } from "../../hooks/Auth.jsx";
 import { Navigate } from "react-router-dom";
 import { useStateContext } from "../../contexts/ContextProvider";
 
@@ -12,11 +12,11 @@ export default function Login() {
         setPassword,
         errors,
         handleLogin
-    } = useLogin();
+    } = login();
     const { token } = useStateContext();
 
     if(token){
-        return <Navigate to="/dashboard" />
+        return <Navigate to="/user/dashboard" />
     }
 
     return (
