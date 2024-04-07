@@ -1,5 +1,5 @@
 # Author: Roberto Piazza
-# Date: 25.03.2023
+# Date: 07.04.2023
 from pathlib import Path
 
 # models import and django auth functions
@@ -20,13 +20,11 @@ from rest_framework.views import APIView
 # dependencies serializers
 from .serializers import *
 # python and other dependencies
-from .utils.crypto_data import get_currency_data, get_historical_price_at_time, convert_crypto_amount, get_crypto_data_from_coinmarketcap, get_historical_price_at_time_coingecko, map_kraken_coins, map_kraken_tx_types
+from .utils import crypto_data
 from datetime import datetime, timedelta
 import pandas as pd
 import pytz
-import requests
 import io
-import os
 from xhtml2pdf import pisa
 
 
@@ -144,42 +142,16 @@ class DashboardAPIView(APIView):
     """API View for handling and displaying dashboard values."""
     authentication_classes = [TokenAuthentication]
 
-    # TODO: update prices from owned assets every 30 min?
-    def update_asset_info(self, asset_info, portfolio):
-        """Update asset info image and current price if last updated is > 30min. If CoinGecko fails use webscraping and get data from coinmarkecap"""
-        if asset_info.api_id_name == 'euro':
-            return
-
-        current_time = timezone.now()
-        time_delta = timedelta(minutes=180)
-        if current_time - asset_info.updated_at < time_delta and asset_info.current_price != 0.0:
-            # print(f"{asset_info.fullname} wurde vor weniger als 30 Minuten aktualisiert.")
-            return
-
-        def update_balances(asset, user_portfolio):
-            print("update balances")
-            # update portfolio balance and asset owned quantity
-            asset_owned = AssetOwned.objects.filter(asset=asset, portfolio=user_portfolio).first()
-            old_quantity_price = asset_owned.quantity_price
-            asset_owned.quantity_price = asset.current_price * asset_owned.quantity_owned
-            asset_owned.save()
-            user_portfolio.balance += asset_owned.quantity_price - old_quantity_price
-            user_portfolio.save()
-
-        try:
-            # get data from coingecko api
-            new_data = get_currency_data(api_id_name=asset_info.api_id_name)
-            asset_info.current_price = new_data['current_price']
-            asset_info.image = new_data['image']
-            asset_info.save()
-            update_balances(asset=asset_info, user_portfolio=portfolio)
-        except:
-            # get data from webscraping coinmarketcap
-            data = get_crypto_data_from_coinmarketcap(crypto_name=asset_info.api_id_name)
-            asset_info.current_price = data['current_price']
-            asset_info.image = data['image']
-            asset_info.save()
-            update_balances(asset=asset_info, user_portfolio=portfolio)
+    def update_balances(self, asset: AssetInfo, user_portfolio: Portfolio):
+        """Update Portfolio balanace with new AssetInfo data"""
+        print("update balances")
+        # update portfolio balance and asset owned quantity
+        asset_owned = AssetOwned.objects.filter(asset=asset, portfolio=user_portfolio).first()
+        old_quantity_price = asset_owned.quantity_price
+        asset_owned.quantity_price = asset.current_price * asset_owned.quantity_owned
+        asset_owned.save()
+        user_portfolio.balance += asset_owned.quantity_price - old_quantity_price
+        user_portfolio.save()
 
     def get_balances(self, portfolios):
         """Calculate sum balance of all portfolios and extract each balance from one portfolio"""
@@ -195,7 +167,7 @@ class DashboardAPIView(APIView):
         return sum_balance, spot_balance, staking_balance
 
     # TODO: calculate trend for each asset
-    def get_assets_in_portfolios(self, user, asset_infos):
+    def get_assets_in_portfolios(self, user: User, asset_infos: AssetInfo):
         """Returns lists containing the assets from all staking and spot portfolios"""
         # get all owned Assets to a user
         owned = AssetOwned.objects.filter(
@@ -209,14 +181,18 @@ class DashboardAPIView(APIView):
             currencies = []
             for own in owned:
                 if own.portfolio == portfolio:
-                    self.update_asset_info(asset_info=own.asset, portfolio=portfolio)
+                    if own.quantity_price < 0.01:
+                        own.delete()
+                        continue
+                    crypto_data.update_asset_info(asset_info=own.asset)
+                    self.update_balances(asset=own.asset, user_portfolio=portfolio)
                     currency = {
                         'acronym': own.asset.acronym.upper(),
                         'img': own.asset.image,
                         'amount': own.quantity_owned,
                         'price': own.asset.current_price,
                         'owned_value': own.quantity_price,
-                        'trend': '1.00%'
+                        'trend': '1.00%' # TODO: set real trend
                     }
                     currencies.append(currency)
 
@@ -233,7 +209,7 @@ class DashboardAPIView(APIView):
         data.sort(key=lambda portfolio: portfolio['name'])
         return data
 
-    def get_transactions_data(self, user):
+    def get_transactions_data(self, user: User):
         """Get all transactions and extract necessary data"""
         transactions = Transaction.objects.filter(
             Q(user=user) |
@@ -275,7 +251,7 @@ class DashboardAPIView(APIView):
             )
         return count_transactions, first_transaction_formatted, last_transaction_formatted, transaction_assets
 
-    def get_chart_data(self, user, asset_infos):
+    def get_chart_data(self, user: User, asset_infos: AssetInfo):
         """Return all owned assets with acronym and their value in euro."""
         # get all owned assets from all portfolios that belongs to a user
         asset_owned = AssetOwned.objects.filter(portfolio__user=user, asset__in=asset_infos)
@@ -298,7 +274,7 @@ class DashboardAPIView(APIView):
 
         return sorted_data
 
-    def get_tax_data(self, user):
+    def get_tax_data(self, user: User):
         """get and return tax data for dashboard"""
         tax_reports = TaxReport.objects.filter(user=user).order_by('-year', '-created_at')
         tax_data_list = []
@@ -374,30 +350,7 @@ class AssetOwnedAPIView(APIView):
     """API View for handling CRUD operations on AssetOwned model."""
     authentication_classes = [TokenAuthentication]
 
-    def update_asset_info(self, asset_info):
-        """Update asset info image and current price if last updated is > 30min. If CoinGecko fails use webscraping and get data from coinmarkecap"""
-        if asset_info.api_id_name == 'euro':
-            return
-
-        current_time = timezone.now()
-        time_delta = timedelta(minutes=30)
-        if current_time - asset_info.updated_at < time_delta and asset_info.current_price != 0.0:
-            # print(f"{asset_info.fullname} wurde vor weniger als 30 Minuten aktualisiert.")
-            return
-
-        try:
-            # get data from coingecko api
-            new_data = get_currency_data(api_id_name=asset_info.api_id_name)
-            asset_info.current_price = new_data['current_price']
-            asset_info.image = new_data['image']
-            asset_info.save()
-        except:
-            # get data from webscraping coinmarketcap
-            data = get_crypto_data_from_coinmarketcap(crypto_name=asset_info.api_id_name)
-            asset_info.current_price = data['current_price']
-            asset_info.image = data['image']
-            asset_info.save()
-
+    # TODO: if asset_name contains 2 strings e.g. Bitcoin Cash it has to transformed to Bitcoin-Cash (insert a dash)
     def post(self, request):
         """POST Route /api/asset-owned/ create new asset owned object."""
         token = request.auth
@@ -413,11 +366,12 @@ class AssetOwnedAPIView(APIView):
 
             # find asset in coingecko api and get new data, update AssetInfo object and create new AssetOwned. Update portfolio balance
             if asset_info_obj is not None:
-                new_data = get_currency_data(api_id_name=asset_info_obj.api_id_name)
+                new_data = crypto_data.get_currency_data(api_id_name=asset_info_obj.api_id_name)
 
                 # update asset infos
                 if not quantity_price:
-                    self.update_asset_info(asset_info=asset_info_obj)
+                    crypto_data.update_asset_info(asset_info=asset_info_obj)
+                    # self.update_asset_info(asset_info=asset_info_obj)
 
                 asset_owned = AssetOwned.objects.filter(portfolio=portfolio, asset=asset_info_obj).first()
                 # TODO: decide when given quantity_price is necessary
@@ -550,7 +504,7 @@ class TransactionTypeAPIView(APIView):
     """API View for handling CRUD operations on TransactionType model."""
     authentication_classes = [TokenAuthentication]
 
-    def get_data_for_create(self, user):
+    def get_data_for_create(self, user: User):
         tx_types = TransactionType.objects.all()
         tx_serializer = TransactionTypeSerializer(tx_types, many=True)
 
@@ -589,7 +543,7 @@ class TransactionTypeAPIView(APIView):
 
 
 class TransactionAPIView(APIView):
-    """API View for handling CRUD operations on Portfolio model."""
+    """API View for handling CRUD operations on Transaction model."""
     authentication_classes = [TokenAuthentication]
 
     def get_transactions_data(self, user):
@@ -644,29 +598,6 @@ class TransactionAPIView(APIView):
         except Token.DoesNotExist:
             return Response(data={'detail': 'Ungültiges Token.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # TODO: update asset only if last updated > 30 min? + what if api and scraping fails?
-    def update_asset_info(self, asset_info: AssetInfo):
-        """Update asset info image and current price. If CoinGecko fails use webscraping and get data from coinmarkecap"""
-        if asset_info.api_id_name == 'euro':
-            return
-
-        current_time = timezone.now()
-        time_delta = timedelta(minutes=30)
-        if current_time - asset_info.updated_at < time_delta and asset_info.current_price != 0.0:
-            # print(f"{asset_info.fullname} wurde vor weniger als 30 Minuten aktualisiert.")
-            return
-
-        try:
-            new_data = get_currency_data(api_id_name=asset_info.api_id_name)
-            asset_info.current_price = new_data['current_price']
-            asset_info.image = new_data['image']
-            asset_info.save()
-        except:
-            data = get_crypto_data_from_coinmarketcap(crypto_name=asset_info.api_id_name)
-            asset_info.current_price = data['current_price']
-            asset_info.image = data['image']
-            asset_info.save()
-
     # TODO: validate data
     def validate_data(self, user, data):
         portfolio = Portfolio.objects.get(user=user, id=data['portfolio'])
@@ -717,7 +648,8 @@ class TransactionAPIView(APIView):
                                     status=status.HTTP_400_BAD_REQUEST)
 
                 # update asset infos
-                self.update_asset_info(asset_info=asset_info)
+                # self.update_asset_info(asset_info=asset_info)
+                crypto_data.update_asset_info(asset_info=asset_info)
 
                 # check if asset owned exists in portfolio, if not create owned asset in given portfolio
                 asset_in_portfolio = AssetOwned.objects.filter(portfolio__user=user,
@@ -749,9 +681,10 @@ class TransactionAPIView(APIView):
                         portfolio.save()
 
                         # get price on tx_date, if error take given tx_price
-                        datetime_price = get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
-                                                                                tx_date=tx_date) if asset_info.api_id_name != "euro" else 1.0
-                        if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                        datetime_price = crypto_data.get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
+                                                                                            tx_date=tx_date) if asset_info.api_id_name != "euro" else 1.0
+                        # if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                        if not isinstance(datetime_price, float) and datetime_price is None:
                             if tx_price is None:
                                 return Response(
                                     data={'message': 'Preis beim Handel konnte online nicht ermittelt werden, bitte eingeben.'},
@@ -781,7 +714,8 @@ class TransactionAPIView(APIView):
                         if target_asset_info is None:
                             return Response(data={'message': 'Ziel-Kryptowährung wird nicht unterstützt.'},
                                             status=status.HTTP_400_BAD_REQUEST)
-                        self.update_asset_info(asset_info=target_asset_info)
+                        # self.update_asset_info(asset_info=target_asset_info)
+                        crypto_data.update_asset_info(asset_info=target_asset_info)
 
                         current_price_old_asset = asset_info.current_price
                         old_asset_owned = AssetOwned.objects.create(
@@ -794,11 +728,12 @@ class TransactionAPIView(APIView):
                         portfolio.save()
 
                         current_price_target_asset = target_asset_info.current_price
-                        target_asset_amount = convert_crypto_amount(base_crypto=asset_info.api_id_name,
-                                                                    target_crypto=target_asset_info.acronym,
-                                                                    amount=tx_amount)
+                        target_asset_amount = crypto_data.convert_crypto_amount(base_crypto=asset_info.api_id_name,
+                                                                                target_crypto=target_asset_info.acronym,
+                                                                                amount=tx_amount)
 
-                        if not isinstance(target_asset_amount, float) and target_asset_amount.startswith("Fehler"):
+                        # if not isinstance(target_asset_amount, float) and target_asset_amount.startswith("Fehler"):
+                        if not isinstance(target_asset_amount, float) and target_asset_amount is None:
                             # conversion unsuccessful due to api error, calculate with given price data
                             if tx_price is None:
                                 return Response(
@@ -834,9 +769,10 @@ class TransactionAPIView(APIView):
                             portfolio.save()
 
                         # get price on tx_date, if error take given tx_price
-                        datetime_price = get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
-                                                                                tx_date=tx_date) if asset_info.api_id_name != "euro" else 1.0
-                        if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                        datetime_price = crypto_data.get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
+                                                                                            tx_date=tx_date) if asset_info.api_id_name != "euro" else 1.0
+                        # if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                        if not isinstance(datetime_price, float) and datetime_price is None:
                             if tx_price is None:
                                 return Response(
                                     data={'message': 'Preis beim Handel konnte online nicht ermittelt werden, bitte eingeben.'},
@@ -881,10 +817,11 @@ class TransactionAPIView(APIView):
                         portfolio.save()
 
                         # get price on tx_date, if error take given tx_price
-                        datetime_price = get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
-                                                                                tx_date=tx_date) if asset_info.api_id_name != "euro" else 1.0
+                        datetime_price = crypto_data.get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
+                                                                                            tx_date=tx_date) if asset_info.api_id_name != "euro" else 1.0
 
-                        if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                        # if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                        if not isinstance(datetime_price, float) and datetime_price is None:
                             if tx_price is None:
                                 return Response(
                                     data={
@@ -916,7 +853,8 @@ class TransactionAPIView(APIView):
                         if target_asset_info is None:
                             return Response(data={'message': 'Ziel-Kryptowährung wird nicht unterstützt.'},
                                             status=status.HTTP_400_BAD_REQUEST)
-                        self.update_asset_info(asset_info=target_asset_info)
+                        # self.update_asset_info(asset_info=target_asset_info)
+                        crypto_data.update_asset_info(asset_info=target_asset_info)
 
                         current_price_old_asset = asset_info.current_price
                         current_price_target_asset = target_asset_info.current_price
@@ -931,11 +869,11 @@ class TransactionAPIView(APIView):
                         portfolio.save()
 
                         # update target asset
-                        target_asset_amount = convert_crypto_amount(base_crypto=asset_info.api_id_name,
-                                                                    target_crypto=target_asset_info.acronym,
-                                                                    amount=tx_amount)
-
-                        if not isinstance(target_asset_amount, float) and target_asset_amount.startswith("Fehler"):
+                        target_asset_amount = crypto_data.convert_crypto_amount(base_crypto=asset_info.api_id_name,
+                                                                                target_crypto=target_asset_info.acronym,
+                                                                                amount=tx_amount)
+                        # if not isinstance(target_asset_amount, float) and target_asset_amount.startswith("Fehler"):
+                        if not isinstance(target_asset_amount, float) and target_asset_amount is None:
                             # conversion unsuccessful due to api error, calculate with given price data
                             if tx_price is None:
                                 return Response(
@@ -972,10 +910,10 @@ class TransactionAPIView(APIView):
                             portfolio.save()
 
                         # get price on tx_date, if error take given tx_price
-                        datetime_price = get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
-                                                                                tx_date=tx_date) if asset_info.api_id_name != "euro" else 1.0
-
-                        if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                        datetime_price = crypto_data.get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
+                                                                                            tx_date=tx_date) if asset_info.api_id_name != "euro" else 1.0
+                        # if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                        if not isinstance(datetime_price, float) and datetime_price is None:
                             if tx_price is None:
                                 return Response(
                                     data={
@@ -1037,105 +975,8 @@ class KrakenFileImportAPIView(APIView):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.coin_mapping = map_kraken_coins()
-        self.type_mapping = map_kraken_tx_types()
-
-        # self.coin_mapping = {
-        #     'ADA.S':     'ADA',
-        #     'ALGO.S':    'ALGO',
-        #     'ATOM.S':    'ATOM',
-        #     'ATOM21.S':  'ATOM',
-        #     'DOT.S':     'DOT',
-        #     'DOT28.S':   'DOT',
-        #     'ETH2':      'ETH',
-        #     'ETH2.S':    'ETH',
-        #     'ETHW':      'ETH',
-        #     'FLOW.S':    'FLOW',
-        #     'FLOW14.S':  'FLOW',
-        #     'FLOWH.S':   'FLOW',
-        #     'FLR.S':     'FLR',
-        #     'GRT.S':     'GRT',
-        #     'GRT28.S':   'GRT',
-        #     'KAVA.S':    'KAVA',
-        #     'KAVA21.S':  'KAVA',
-        #     'KSM.S':     'KSM',
-        #     'KSM07.S':   'KSM',
-        #     'LUNA.S':    'LUNA',
-        #     'MATIC.S':   'MATIC',
-        #     'MATIC04.S': 'MATIC',
-        #     'MINA.S':    'MINA',
-        #     'SCRT.S':    'SCRT',
-        #     'SCRT21.S':  'SCRT',
-        #     'SOL.S':     'SOL',
-        #     'SOL03.S':   'SOL',
-        #     'USDC.M':    'USDC',
-        #     'USDT.M':    'USDT',
-        #     'XBT.M':     'BTC',
-        #     'TRX.S':     'TRX',
-        #     'XBT':       'BTC',
-        #     'XETC':      'ETC',
-        #     'XETH':      'ETH',
-        #     'XTZ.S':     'XTZ',
-        #     'XLTC':      'LTC',
-        #     'XMLN':      'MLN',
-        #     'XREP':      'REP',
-        #     'XXBT':      'BTC',
-        #     'XXDG':      'XDG',
-        #     'XXLM':      'XLM',
-        #     'XXMR':      'XMR',
-        #     'XXRP':      'XRP',
-        #     'XZEC':      'ZEC',
-        #     'ZAUD':      'AUD',
-        #     'ZCAD':      'CAD',
-        #     'ZEUR':      'EUR',
-        #     'ZGBP':      'GBP',
-        #     'ZJPY':      'JPY',
-        #     'ZUSD':      'USD',
-        # }
-
-        # self.type_mapping = {
-        #     'trade':      'Handel',
-        #     'deposit':    'Einzahlung',
-        #     'withdrawal': 'Gesendet',
-        #     'staking':    'Reward',
-        #     'earn':       'Reward',
-        #     'buy':        'Kaufen',
-        #     'sell':       'Verkaufen',
-        #     'transfer':   'Transfer'
-        # }
-
-    def get_coin_pairs(self, dataframe):
-        pairs = set([row['pair'] for index, row in dataframe.iterrows()])
-        joined_pairs_list = ",".join(pairs)
-        url = f'https://api.kraken.com/0/public/AssetPairs?pair={joined_pairs_list}'
-        response = requests.get(url)
-        if response.status_code != 200:
-            return 'Fehler beim Abrufen der Daten von der API'
-
-        data = response.json()['result']
-        return data
-
-    def update_asset_info(self, asset_info: AssetInfo):
-        """Update asset info image and current price. If CoinGecko fails use webscraping and get data from coinmarkecap"""
-        if asset_info.api_id_name == 'euro':
-            return
-
-        current_time = timezone.now()
-        time_delta = timedelta(minutes=30)
-        if current_time - asset_info.updated_at < time_delta and asset_info.current_price != 0.0:
-            # print(f"{asset_info.fullname} wurde vor weniger als 30 Minuten aktualisiert.")
-            return
-
-        try:
-            new_data = get_currency_data(api_id_name=asset_info.api_id_name)
-            asset_info.current_price = new_data['current_price']
-            asset_info.image = new_data['image']
-            asset_info.save()
-        except:
-            data = get_crypto_data_from_coinmarketcap(crypto_name=asset_info.api_id_name)
-            asset_info.current_price = data['current_price']
-            asset_info.image = data['image']
-            asset_info.save()
+        self.coin_mapping = crypto_data.map_kraken_coins()
+        self.type_mapping = crypto_data.map_kraken_tx_types()
 
     def create_asset_update_portfolio(self, asset_owned: AssetOwned, asset_info: AssetInfo, portfolio: Portfolio,
                                       balance: float, quantity_price: float, amount: float, tx_exists: bool = False):
@@ -1174,12 +1015,14 @@ class KrakenFileImportAPIView(APIView):
         datetime_price = element['amount'] # TODO: correct standard value?
         if asset != 'EUR':
             # get price on tx_date with coingecko, if error try cryotocompare api otherwise 0.0 and TODO: update later
-            datetime_price = get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
-                                                                    tx_date=tx_date) if asset_info.api_id_name != "euro" else 1.0
-            if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
-                datetime_price = get_historical_price_at_time(tx_date=tx_date,
-                                                              crypto_symbol=asset) if asset_info.api_id_name != "euro" else 1.0
-                if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+            datetime_price = crypto_data.get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
+                                                                                tx_date=tx_date) if asset_info.api_id_name != "euro" else 1.0
+            # if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+            if not isinstance(datetime_price, float) and datetime_price is None:
+                datetime_price = crypto_data.get_historical_price_at_time(tx_date=tx_date,
+                                                                          crypto_symbol=asset) if asset_info.api_id_name != "euro" else 1.0
+                # if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                if not isinstance(datetime_price, float) and datetime_price is None:
                     datetime_price = 0.0
 
         type_tx = TransactionType.objects.get(type=tx_type)
@@ -1198,7 +1041,9 @@ class KrakenFileImportAPIView(APIView):
             status=False if datetime_price == 0.0 else True
         )
 
-    def processing_trades_csv(self, dataframe, data):
+    def processing_trades_csv(self, dataframe: pd.DataFrame, data):
+        """Processing and updating trades csv file with separated coin pairs.
+        Split coin pairs in base and quote and insert new columns in dataframe"""
         pair_separated = {}
         # assign pairs to their originals coins in a dict e.g. { 'ADAEUR': {'base': 'ADA', 'quote': 'EUR} }
         for k, v in data.items():
@@ -1263,8 +1108,10 @@ class KrakenFileImportAPIView(APIView):
                     df.insert(loc=3, column='base', value="")
                     df.insert(loc=4, column='quote', value="")
 
-                    data = self.get_coin_pairs(dataframe=df)
-                    if not isinstance(data, dict) and data.startswith("Fehler"):
+                    data = crypto_data.get_coin_pairs(dataframe=df)
+                    # data = self.get_coin_pairs(dataframe=df)
+                    # if not isinstance(data, dict) and data.startswith("Fehler"):
+                    if not isinstance(data, dict) and data is None:
                         return Response(
                             data={
                                 'message': 'Kryptopaare konnten online nicht ermittelt werden. Versuche es später erneut'},
@@ -1350,10 +1197,12 @@ class KrakenFileImportAPIView(APIView):
                         # quantity_price = amount * asset_info.current_price if asset_info is not None else amount * asset_info_trades.current_price if asset_info_trades is not None else 0.0
 
                         if asset_info is not None and asset_info_trades is None:
-                            self.update_asset_info(asset_info=asset_info)
+                            crypto_data.update_asset_info(asset_info=asset_info)
+                            # self.update_asset_info(asset_info=asset_info)
                             quantity_price = amount * asset_info.current_price
                         if asset_info_trades is not None and asset_info is None:
-                            self.update_asset_info(asset_info=asset_info_trades)
+                            crypto_data.update_asset_info(asset_info=asset_info_trades)
+                            # self.update_asset_info(asset_info=asset_info_trades)
 
                         if element['type_ledgers'] == "Reward":
                             asset_owned = AssetOwned.objects.filter(asset=asset_info,
@@ -1480,7 +1329,7 @@ class TaxReportAPIView(APIView):
             'trades_tx': trades,
             'trade_value': round(trade_value, 3) if trade_value > 0.0 else "0,00",
             'fee_trade_value': round(fee_trade_value, 3) if fee_trade_value > 0.0 else "0,00",
-            'tax_free_trade_limit': '800,00',
+            'tax_free_trade_limit': '600,00',
             'total_trade_value': trade_value - fee_trade_value if reward_value > 600.00 else '0,00',
             # rewards data
             'len_of_rewards': len(rewards),
@@ -1546,14 +1395,14 @@ class TaxReportAPIView(APIView):
                     })
 
                 # TODO: implement logic for trades (buy, sell, trade) within 1 year
-                if transaction.tx_type.type in ["Kaufen", "Verkaufen", "Gesendet", "Handel"]:
-                    trades_tx.append({
-                        'date': transaction.tx_date,
-                        'asset': transaction.asset.asset.acronym.upper(),
-                        'amount': transaction.tx_amount,
-                        'fee': transaction.tx_fee,
-                        'value': transaction.tx_value
-                    })
+                # if transaction.tx_type.type in ["Kaufen", "Verkaufen", "Gesendet", "Handel"]:
+                #     trades_tx.append({
+                #         'date': transaction.tx_date,
+                #         'asset': transaction.asset.asset.acronym.upper(),
+                #         'amount': transaction.tx_amount,
+                #         'fee': transaction.tx_fee,
+                #         'value': transaction.tx_value
+                #     })
 
             # convert into dataframe
             df_rewards = pd.DataFrame(rewards_tx)
@@ -1571,7 +1420,7 @@ class TaxReportAPIView(APIView):
                                                  trade_value=trade_value, fee_trade_value=fee_trade_value)
 
             if not pdf.err:
-                # Setze den Cursor des Streams zurück an den Anfang der Datei
+                # Set the cursor of the stream back to the beginning of the file
                 result.seek(0)
 
                 pdf_content = result.read()
@@ -1646,6 +1495,3 @@ class ExchangeApiAPIView(APIView):
                     )
                     return Response(data={'message': 'success'}, status=status.HTTP_200_OK)
                 return Response(data={'message': 'API-Schlüssel zur Börse bereits vorhanden.'}, status=status.HTTP_202_ACCEPTED)
-
-
-

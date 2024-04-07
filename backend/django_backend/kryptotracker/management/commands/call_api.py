@@ -1,5 +1,5 @@
 # Author: Roberto Piazza
-# Date: 27.03.2023
+# Date: 07.04.2023
 
 import pytz
 import time
@@ -15,28 +15,29 @@ from kryptotracker.utils import crypto_data
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 
-def get_kraken_signature(urlpath, data, secret):
+
+def get_kraken_signature(urlpath: str, data: dict, api_sec: str) -> str:
     """Kraken Security"""
     postdata = urllib.parse.urlencode(data)
     encoded = (str(data['nonce']) + postdata).encode()
     message = urlpath.encode() + hashlib.sha256(encoded).digest()
-    mac = hmac.new(base64.b64decode(secret), message, hashlib.sha512)
+    mac = hmac.new(base64.b64decode(api_sec), message, hashlib.sha512)
     sigdigest = base64.b64encode(mac.digest())
     return sigdigest.decode()
 
 
-def kraken_request(uri_path, data, api_key, api_sec):
+def kraken_request(uri_path: str, data: dict, api_key: str, api_sec: str):
     """Attaches auth headers and returns results of a POST request"""
     api_url = "https://api.kraken.com"
     headers = {
         'API-Key': api_key,
-        'API-Sign': get_kraken_signature(uri_path, data, api_sec)
+        'API-Sign': get_kraken_signature(urlpath=uri_path, data=data, api_sec=api_sec)
     }
     req = requests.post((api_url + uri_path), headers=headers, data=data)
     return req
 
 
-def get_kraken_balances(a_key, a_sec):
+def get_kraken_balances(a_key: str, a_sec: str) -> dict:
     """Return kraken balances greater than 0.00005 from kraken api"""
     nonce = str(1000 * int(1000 * time.time()))
     resp = kraken_request(uri_path='/0/private/Balance', data={"nonce": nonce}, api_key=a_key, api_sec=a_sec)
@@ -45,7 +46,7 @@ def get_kraken_balances(a_key, a_sec):
     return balances
 
 
-def get_kraken_staking_data(a_key, a_sec):
+def get_kraken_staking_data(a_key: str, a_sec: str) -> dict:
     """Return staking data from kraken api"""
     nonce = str(1000 * int(1000 * time.time()))
     resp = kraken_request(uri_path='/0/private/Earn/Allocations', data={
@@ -56,7 +57,7 @@ def get_kraken_staking_data(a_key, a_sec):
     return resp.json()['result']
 
 
-def get_kraken_trade_history(a_key, a_sec):
+def get_kraken_trade_history(a_key: str, a_sec: str) -> dict:
     """Return trade history from kraken api"""
     nonce = str(1000 * int(1000 * time.time()))
     resp = kraken_request('/0/private/TradesHistory', {
@@ -65,7 +66,7 @@ def get_kraken_trade_history(a_key, a_sec):
     return resp.json()['result']
 
 
-def get_kraken_ledgers_info(a_key, a_sec, start=None):
+def get_kraken_ledgers_info(a_key: str, a_sec: str, start: int = None):
     """Return ledgers info from kraken api"""
     nonce = str(1000 * int(1000 * time.time()))
     if start is None:
@@ -185,7 +186,7 @@ def update_staking_portfolio(staking_portfolio: Portfolio, data: list) -> None:
     for staking_data in data:
         sum_staking += float(staking_data['converted'])
         asset_info = AssetInfo.objects.filter(acronym=staking_data['asset']).first()
-        crypto_data.update_asset_info(asset_info=asset_info)
+        # crypto_data.update_asset_info(asset_info=asset_info) # probably don't need
         if asset_info is not None:
             asset_in_staking = AssetOwned.objects.filter(asset=asset_info, portfolio=staking_portfolio).first()
             if asset_in_staking is None:
@@ -213,9 +214,10 @@ def update_spot_portfolio(spot_portfolio: Portfolio, data: dict) -> None:
         if asset_info is not None:
             if asset_info.fullname == "EthereumPoW":
                 data = crypto_data.get_crypto_data_from_coinmarketcap(crypto_name=asset_info.api_id_name[:-4])
-                asset_info.current_price = data['current_price']
-                asset_info.image = data['image']
-                asset_info.save()
+                if data is not None:
+                    asset_info.current_price = data['current_price']
+                    asset_info.image = data['image']
+                    asset_info.save()
             else:
                 crypto_data.update_asset_info(asset_info=asset_info)
             quantity_price = asset_info.current_price * float(amount)
@@ -259,26 +261,16 @@ def handle_new_ledger_tx(user: User, data: dict):
     # TODO: import tx according to tx_type
     for index, element in df.iterrows():
         print(index)
-        tx_exists = Transaction.objects.filter(user=user, tx_hash=element['tx_id']).exists()
+        tx_exists = Transaction.objects.filter(user=user, tx_hash=element['txid']).exists()
         if tx_exists:
+            print(f"Transaktion vom {element['time']} bereits importiert.")
             continue
 
         asset_info = AssetInfo.objects.filter(acronym=element["asset"]).first()
         if asset_info is not None:
-            # amount = element['amount']
-            # balance = element['balance']
-            # crypto_data.update_asset_info(asset_info=asset_info)
-            # quantity_price = amount * asset_info.current_price
-
             if element['type'] == "Reward":
                 asset_owned = AssetOwned.objects.filter(asset=asset_info,
                                                         portfolio=portfolio_staking).first()
-                # asset_owned = create_asset_update_portfolio(asset_owned=asset_owned,
-                #                                             asset_info=asset_info,
-                #                                             portfolio=portfolio_staking,
-                #                                             amount=amount,
-                #                                             balance=balance,
-                #                                             quantity_price=quantity_price)
                 create_tx(user=user, asset_info=asset_info, asset_owned=asset_owned, portfolio=portfolio_staking,
                           element=element)
 
@@ -288,7 +280,7 @@ def create_dataframe_from_ledgers_data(data: dict) -> pd.DataFrame:
     records = []
     for key, values in data.items():
         record = values.copy()
-        record['tx_id'] = key
+        record['txid'] = key
         records.append(record)
     df = pd.DataFrame(records)
 
@@ -305,7 +297,7 @@ def create_dataframe_from_ledgers_data(data: dict) -> pd.DataFrame:
 
 
 def create_tx(user: User, asset_info: AssetInfo, asset_owned: AssetOwned, portfolio: Portfolio, element: pd.DataFrame.items) -> None:
-    tx_fee = element['fee']
+    tx_fee = float(element['fee']) * asset_info.current_price if float(element['fee']) > 0.0 else 0.0
     tx_date = element['time']
     asset = element['asset']
     amount = float(element['amount'])
@@ -315,10 +307,12 @@ def create_tx(user: User, asset_info: AssetInfo, asset_owned: AssetOwned, portfo
         # get price on tx_date with coingecko, if error try cryotocompare api otherwise 0.0 and TODO: update later
         datetime_price = crypto_data.get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
                                                                             tx_date=tx_date) if asset_info.api_id_name != "euro" else 1.0
-        if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+        # if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+        if not isinstance(datetime_price, float) and datetime_price is None:
             datetime_price = crypto_data.get_historical_price_at_time(tx_date=tx_date,
                                                                       crypto_symbol=asset) if asset_info.api_id_name != "euro" else 1.0
-            if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+            # if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+            if not isinstance(datetime_price, float) and datetime_price is None:
                 datetime_price = 0.0
 
     type_tx = TransactionType.objects.get(type=element['type'])
@@ -329,7 +323,7 @@ def create_tx(user: User, asset_info: AssetInfo, asset_owned: AssetOwned, portfo
         asset=asset_owned,
         tx_type=type_tx,
         tx_comment=comment,
-        tx_hash=element['tx_id'],
+        tx_hash=element['txid'],
         tx_amount=amount,
         tx_value=datetime_price * amount if asset != 'EUR' else amount,
         tx_fee=tx_fee,
@@ -338,6 +332,64 @@ def create_tx(user: User, asset_info: AssetInfo, asset_owned: AssetOwned, portfo
     )
 
 # End: ########################### Handle import of new transactions in ledgers ############################
+
+
+# Start: ########################### Handle import of new transactions in trades ############################
+# TODO: implement new trades tx functionality
+def handle_new_trades_tx(user: User, data: dict):
+    """Iterate through trades dictionary with transactions and handle the import"""
+    # convert timestamp into datetime from all elements 'time'
+    transformed_data = {
+        tx_id: {**tx_data,
+                'time': datetime.fromtimestamp(tx_data['time'], tz=pytz.UTC) if 'time' in tx_data else tx_data['time']}
+        for tx_id, tx_data in data.items()
+    }
+
+    # create dataframe from transformed data
+    create_dataframe_from_trades_data(data=transformed_data)
+
+
+def create_dataframe_from_trades_data(data: dict) -> None:
+    """Create a dataframe from ledgers dictionary, transform time column from timestamp to datetime and map asset and tx types."""
+    records = []
+    for key, values in data.items():
+        record = values.copy()
+        record['txid'] = key
+        records.append(record)
+    df = pd.DataFrame(records)
+
+    # drop unnecessary column
+    df = df.drop(columns=['margin'])
+    df = df.drop(columns=['leverage'])
+    df = df.drop(columns=['misc'])
+    df = df.drop(columns=['trade_id'])
+    df = df.drop(columns=['maker'])
+    df = df.drop(columns=['ordertype'])
+    df = df.drop(columns=['postxid'])
+    df = df.drop(columns=['ordertxid'])
+    # convert time, asset and type fields
+    df['time'] = pd.to_datetime(df['time']).dt.strftime('%Y-%m-%dT%H:%M')
+    tx_type_mapping = crypto_data.map_kraken_tx_types()
+    df['type'] = df['type'].map(tx_type_mapping).fillna(df['type'])
+
+    df.insert(loc=1, column='base', value="")
+    df.insert(loc=2, column='quote', value="")
+
+    coin_pairs = crypto_data.get_coin_pairs(dataframe=df)
+    # if not isinstance(coin_pairs, dict) and coin_pairs.startswith("Fehler"):
+    if not isinstance(coin_pairs, dict) and coin_pairs is None:
+        pass
+        # return Response(
+        #     data={
+        #         'message': 'Kryptopaare konnten online nicht ermittelt werden. Versuche es später erneut'},
+        #     status=status.HTTP_400_BAD_REQUEST)
+    # df = crypto_data.processing_trades_csv(dataframe=df, data=coin_pairs)
+
+    # df = df.sort_values(by='time', ascending=True)
+    # print(df)
+    # return df
+
+# End: ########################### Handle import of new transactions in trades ############################
 
 
 class Command(BaseCommand):
@@ -353,14 +405,16 @@ class Command(BaseCommand):
             api_key = exchange_api.api_key
             api_sec = exchange_api.api_sec
 
+            self.stdout.write('--- Update Staking and Spot Portfolio ---')
             # update spot and staking portfolio balances
-            # portfolio_balances = get_kraken_balances(a_key=api_key, a_sec=api_sec)
-            # staking_allocations = get_kraken_staking_data(a_key=api_key, a_sec=api_sec)
-            # handle_portfolio_update(user=user, balances=portfolio_balances, staking_allocations=staking_allocations)
+            portfolio_balances = get_kraken_balances(a_key=api_key, a_sec=api_sec)
+            staking_allocations = get_kraken_staking_data(a_key=api_key, a_sec=api_sec)
+            handle_portfolio_update(user=user, balances=portfolio_balances, staking_allocations=staking_allocations)
 
-
+            self.stdout.write('--- Import new Ledgers Transactions ---')
             # check if user has transactions and get the last one
-            tx = Transaction.objects.filter(user=user).last()
+            tx_types = ['Reward', 'Handel', 'Transfer', 'Gesendet', 'Einzahlung']
+            tx = Transaction.objects.filter(user=user, tx_type__type__in=tx_types).order_by('-tx_date').first()
             print(tx.tx_date)
             if tx and tx.tx_date:
                 # convert datetime into timestamp and handle import of new transactions after the timestamp
@@ -372,8 +426,17 @@ class Command(BaseCommand):
             else:
                 # retrieve all ledgers transaction and handle import
                 ledger_history = get_kraken_ledgers_info(a_key=api_key, a_sec=api_sec, start=None)
+                print(ledger_history)
                 if ledger_history['count'] > 0:
                     new_data = ledger_history['ledger']
                     handle_new_ledger_tx(user=user, data=new_data)
+
+            # tx_types = ['Kaufen', 'Verkaufen']
+            # tx = Transaction.objects.filter(user=user, tx_type__type__in=tx_types).order_by('-tx_date').first()
+            #
+            # trade_history = get_kraken_trade_history(a_key=api_key, a_sec=api_sec)
+            # if trade_history['count'] > 0:
+            #     trade_data = trade_history['trades']
+            #     handle_new_trades_tx(user=user, data=trade_data)
 
         self.stdout.write('Finished API Import...')

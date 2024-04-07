@@ -1,10 +1,15 @@
 # Author: Roberto Piazza
-# Date: 27.03.2023
+# Date: 06.04.2023
 import requests
+import pandas as pd
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from django.utils import timezone
 from kryptotracker.models import AssetInfo
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def get_currency_data(api_id_name: str):
     """
@@ -12,21 +17,43 @@ def get_currency_data(api_id_name: str):
     :param api_id_name: Name of the cryptocurrency to get data.
     :return: Return cryptocurrency data (fullname, api_id_name, symbol, current price and image).
     """
+    # url = f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=eur&ids={api_id_name}&order=market_cap_desc&per_page=250&page=1&sparkline=false&locale=de"
+    # response = requests.get(url)
+    #
+    # if response.status_code != 200:
+    #     return 'Fehler beim Abrufen der Daten von der API'
+    #
+    # data = response.json()[0]
+    # context = {
+    #     'fullname': data['name'],
+    #     'api_id_name': data['id'],
+    #     'acronym': data['symbol'],
+    #     'current_price': float(data['current_price']),
+    #     'image': data['image']
+    # }
+    # return context
+
     url = f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=eur&ids={api_id_name}&order=market_cap_desc&per_page=250&page=1&sparkline=false&locale=de"
-    response = requests.get(url)
-
-    if response.status_code != 200:
-        return 'Fehler beim Abrufen der Daten von der API'
-
-    data = response.json()[0]
-    context = {
-        'fullname': data['name'],
-        'api_id_name': data['id'],
-        'acronym': data['symbol'],
-        'current_price': float(data['current_price']),
-        'image': data['image']
-    }
-    return context
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # throw exception if statuscode != 2xx
+        data = response.json()[0]
+        if data:
+            return {
+                'fullname': data['name'],
+                'api_id_name': data['id'],
+                'acronym': data['symbol'],
+                'current_price': float(data['current_price']),
+                'image': data['image']
+            }
+        else:
+            raise Exception("API data fetch failed")
+    except Exception as e:
+        logger.error(f"Error retrieving data from the CoinGecko API: {e}")
+        return None
+    except requests.RequestException as e:
+        logger.error(f"Error with request CoinGecko API: {e}")
+        return None
 
 
 def get_historical_price_at_time(crypto_symbol: str, tx_date: str):
@@ -36,16 +63,33 @@ def get_historical_price_at_time(crypto_symbol: str, tx_date: str):
     :param tx_date: Transaction date from HTML formular to get specific time price.
     :return: Return cryptocurrency price at specified date and time.
     """
+    # datetime_obj = datetime.strptime(tx_date, '%Y-%m-%dT%H:%M')
+    # timestamp = int(datetime_obj.timestamp())
+    #
+    # url = f"https://min-api.cryptocompare.com/data/pricehistorical?fsym={crypto_symbol}&tsyms=EUR&ts={timestamp}"
+    # response = requests.get(url)
+    # if response.status_code != 200:
+    #     return 'Error retrieving data from the API'
+    #
+    # data = response.json()
+    # return float(data[crypto_symbol]['EUR'])
     datetime_obj = datetime.strptime(tx_date, '%Y-%m-%dT%H:%M')
     timestamp = int(datetime_obj.timestamp())
-
     url = f"https://min-api.cryptocompare.com/data/pricehistorical?fsym={crypto_symbol}&tsyms=EUR&ts={timestamp}"
-    response = requests.get(url)
-    if response.status_code != 200:
-        return 'Fehler beim Abrufen der Daten von der API'
-
-    data = response.json()
-    return float(data[crypto_symbol]['EUR'])
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        if data[crypto_symbol]['EUR']:
+            return float(data[crypto_symbol]['EUR'])
+        else:
+            raise Exception(f"Could not get price for {crypto_symbol}")
+    except Exception as e:
+        logger.error(f"Error retrieving data from the API: {e}")
+        return None
+    except requests.RequestException as e:
+        logger.error(f"Error retrieving data from the API: {e}")
+        return None
 
 
 def get_historical_price_at_time_coingecko(crypto_id: str, tx_date: str):
@@ -55,27 +99,37 @@ def get_historical_price_at_time_coingecko(crypto_id: str, tx_date: str):
     :param tx_date: Transaction date and time in ISO-8601 format ('YYYY-MM-DDTHH:MM').
     :return: Return cryptocurrency price at specified date and time.
     """
+    # response = requests.get(url)
+    # if response.status_code != 200:
+    #     return 'Fehler beim Abrufen der Daten von der API'
+    # data = response.json()
+    # # Analyse und Extraktion des spezifischen Preises
+    # prices = data['prices']
+    # # Beispiel: Rückgabe des ersten Preises im Bereich
+    # return prices[0][1] if prices else 'Fehler - Keine Daten verfügbar'
+
     # convert date into unix-timestamp
     datetime_obj = datetime.strptime(tx_date, '%Y-%m-%dT%H:%M')
     timestamp = int(datetime_obj.timestamp())
-
-    # Festlegen des Start- und Endzeitstempels für die Anfrage
-    start_timestamp = timestamp - 300  # 5 Minuten vor dem Zielzeitpunkt
-    end_timestamp = timestamp + 300  # 5 Minuten nach dem Zielzeitpunkt
-
+    # choose start- and end timestamp for api query
+    start_timestamp = timestamp - 300  # 5 mins target time
+    end_timestamp = timestamp + 300  # 5 mins after target time
     url = f"https://api.coingecko.com/api/v3/coins/{crypto_id.lower()}/market_chart/range?vs_currency=eur&from={start_timestamp}&to={end_timestamp}"
-
-    response = requests.get(url)
-    if response.status_code != 200:
-        return 'Fehler beim Abrufen der Daten von der API'
-
-    data = response.json()
-
-    # Analyse und Extraktion des spezifischen Preises
-    prices = data['prices']
-
-    # Beispiel: Rückgabe des ersten Preises im Bereich
-    return prices[0][1] if prices else 'Fehler - Keine Daten verfügbar'
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        prices = data['prices']
+        if prices:
+            return prices[0][1]
+        else:
+            raise Exception("No price data found")
+    except Exception as e:
+        logger.error(f"Error retrieving data from the API: {e}")
+        return None
+    except requests.RequestException as e:
+        logger.error(f"Error retrieving data from the API: {e}")
+        return None
 
 
 def convert_crypto_amount(base_crypto: str, target_crypto: str, amount: float):
@@ -86,18 +140,32 @@ def convert_crypto_amount(base_crypto: str, target_crypto: str, amount: float):
     :param amount: Amount of the base cryptocurrency.
     :return: Equivalent amount in the target cryptocurrency.
     """
+    # response = requests.get(url)
+    # if response.status_code != 200:
+    #     return 'Fehler beim Abrufen der Daten von der API'
+    #
+    # data = response.json()
+    # price = data.get(base_crypto, {}).get(target_crypto)
+    # if price is None:
+    #     return 'Fehler - Umrechnungskurs nicht verfügbar'
+    #
+    # return float(amount * price)
     url = f'https://api.coingecko.com/api/v3/simple/price?ids={base_crypto}&vs_currencies={target_crypto}'
-
-    response = requests.get(url)
-    if response.status_code != 200:
-        return 'Fehler beim Abrufen der Daten von der API'
-
-    data = response.json()
-    price = data.get(base_crypto, {}).get(target_crypto)
-    if price is None:
-        return 'Fehler - Umrechnungskurs nicht verfügbar'
-
-    return float(amount * price)
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        price = data.get(base_crypto, {}).get(target_crypto)
+        if price is not None:
+            return float(amount * price)
+        else:
+            raise Exception("Exchange rate not available")
+    except Exception as e:
+        logger.error(f"Error retrieving data from the API: {e}")
+        return None
+    except requests.RequestException as e:
+        logger.error(f"Error retrieving data from the API: {e}")
+        return None
 
 
 def get_crypto_data_from_coinmarketcap(crypto_name: str):
@@ -106,51 +174,107 @@ def get_crypto_data_from_coinmarketcap(crypto_name: str):
     :param crypto_name: Name of the cryptocurrency to get data (symbol, name, price and image).
     :return: Dictionary with current cryptocurrency data (symbol, name, price and image).
     """
+    # url = f'https://coinmarketcap.com/de/currencies/{crypto_name}/'
+    # response = requests.get(url)
+    #
+    # if response.status_code != 200:
+    #     return 'Fehler beim Abrufen der Webseite'
+
+    # soup = BeautifulSoup(response.text, 'html.parser')
+    #
+    # # Extract current cryptocurrency price and format into float
+    # price_selector = '.sc-f70bb44c-0.jxpCgO.base-text'
+    # price_element = soup.select_one(price_selector)
+    # if not price_element:
+    #     return 'Fehler - Preiselement nicht gefunden'
+    #
+    # price_text = price_element.text.strip().replace('€', '').replace(',', '')
+    # try:
+    #     # removal of spaces and commas and conversion to a number
+    #     price = float(price_text.replace(',', ''))
+    # except ValueError:
+    #     return 'Fehler - Konnte den Preis nicht in eine Zahl konvertieren'
+    #
+    # # Extract Image-URL
+    # image_selector = '[data-role="coin-logo"] img'
+    # image_element = soup.select_one(image_selector)
+    # image_src = image_element[
+    #     'src'] if image_element and 'src' in image_element.attrs else 'Bild-Element nicht gefunden'
+    #
+    # # Extract Name
+    # name_selector = '[data-role="coin-name"]'
+    # name_element = soup.select_one(name_selector)
+    # name = name_element.get_text(strip=True) if name_element else 'Name-Element nicht gefunden'
+    #
+    # # Extract Symbol
+    # symbol_selector = '[data-role="coin-symbol"]'
+    # symbol_element = soup.select_one(symbol_selector)
+    # symbol = symbol_element.text.strip() if symbol_element else 'Symbol-Element nicht gefunden'
+    #
+    # return {
+    #     'current_price': price,
+    #     'image': image_src,
+    #     'name': name.split('-')[0].strip(),
+    #     'symbol': symbol
+    # }
     url = f'https://coinmarketcap.com/de/currencies/{crypto_name}/'
-    response = requests.get(url)
-
-    if response.status_code != 200:
-        return 'Fehler beim Abrufen der Webseite'
-
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    # Extract current cryptocurrency price and format into float
-    price_selector = '.sc-f70bb44c-0.jxpCgO.base-text'
-    price_element = soup.select_one(price_selector)
-    if not price_element:
-        return 'Fehler - Preiselement nicht gefunden'
-
-    price_text = price_element.text.strip().replace('€', '').replace(',', '')
     try:
-        # removal of spaces and commas and conversion to a number
-        price = float(price_text.replace(',', ''))
-    except ValueError:
-        return 'Fehler - Konnte den Preis nicht in eine Zahl konvertieren'
+        response = requests.get(url)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
 
-    # Extract Image-URL
-    image_selector = '[data-role="coin-logo"] img'
-    image_element = soup.select_one(image_selector)
-    image_src = image_element[
-        'src'] if image_element and 'src' in image_element.attrs else 'Bild-Element nicht gefunden'
+        # Extract current cryptocurrency price and format into float
+        price_selector = '.sc-f70bb44c-0.jxpCgO.base-text'
+        price_element = soup.select_one(price_selector)
+        if not price_element:
+            raise Exception("Price element not found with webscraping")
+            # return 'Fehler - Preiselement nicht gefunden'
 
-    # Extract Name
-    name_selector = '[data-role="coin-name"]'
-    name_element = soup.select_one(name_selector)
-    name = name_element.get_text(strip=True) if name_element else 'Name-Element nicht gefunden'
+        price_text = price_element.text.strip().replace('€', '').replace(',', '')
+        try:
+            # removal of spaces and commas and conversion to a number
+            price = float(price_text.replace(',', ''))
+        except ValueError:
+            logger.error("Could not convert the price to a number after webscraping")
+            return None
+            # return 'Fehler - Konnte den Preis nicht in eine Zahl konvertieren'
 
-    # Extract Symbol
-    symbol_selector = '[data-role="coin-symbol"]'
-    symbol_element = soup.select_one(symbol_selector)
-    symbol = symbol_element.text.strip() if symbol_element else 'Symbol-Element nicht gefunden'
+        # Extract Image-URL
+        image_selector = '[data-role="coin-logo"] img'
+        image_element = soup.select_one(image_selector)
+        # image_src = image_element['src'] if image_element and 'src' in image_element.attrs else 'Bild-Element nicht gefunden'
+        image_src = image_element['src']
 
-    return {
-        'current_price': price,
-        'image': image_src,
-        'name': name.split('-')[0].strip(),
-        'symbol': symbol
-    }
+        # Extract Name
+        name_selector = '[data-role="coin-name"]'
+        name_element = soup.select_one(name_selector)
+        # name = name_element.get_text(strip=True) if name_element else 'Name-Element nicht gefunden'
+        name = name_element.get_text(strip=True)
+
+        # Extract Symbol
+        symbol_selector = '[data-role="coin-symbol"]'
+        symbol_element = soup.select_one(symbol_selector)
+        # symbol = symbol_element.text.strip() if symbol_element else 'Symbol-Element nicht gefunden'
+        symbol = symbol_element.text.strip()
+
+        if not all([price_element, image_element, name_element, symbol_element]):
+            raise Exception("Not all data available with webscraping")
+        else:
+            return {
+                'current_price': price,
+                'image': image_src,
+                'name': name.split('-')[0].strip(),
+                'symbol': symbol
+            }
+    except Exception as e:
+        logger.error(f"Error retrieving data from webscraping: {e}")
+        return None
+    except requests.RequestException as e:
+        logger.error(f"Error retrieving data from webscraping: {e}")
+        return None
 
 
+# TODO: what if api call and webscraping fails?
 def update_asset_info(asset_info: AssetInfo):
     """Update asset info image and current price. If CoinGecko fails use webscraping and get data from coinmarkecap"""
     if asset_info.api_id_name == 'euro':
@@ -162,15 +286,30 @@ def update_asset_info(asset_info: AssetInfo):
         return
 
     try:
-        new_data = get_currency_data(api_id_name=asset_info.api_id_name)
-        asset_info.current_price = new_data['current_price']
-        asset_info.image = new_data['image']
-        asset_info.save()
-    except:
-        data = get_crypto_data_from_coinmarketcap(crypto_name=asset_info.api_id_name)
-        asset_info.current_price = data['current_price']
-        asset_info.image = data['image']
-        asset_info.save()
+        if asset_info.fullname == "EthereumPoW":
+            new_data = get_crypto_data_from_coinmarketcap(crypto_name=asset_info.api_id_name[:-4])
+            if new_data is not None:
+                asset_info.current_price = new_data['current_price']
+                asset_info.image = new_data['image']
+                asset_info.save()
+        else:
+            new_data = get_currency_data(api_id_name=asset_info.api_id_name)
+            # if 'current_price' in new_data and 'image' in new_data:
+            if new_data is not None:
+                asset_info.current_price = new_data['current_price']
+                asset_info.image = new_data['image']
+                asset_info.save()
+            else:
+                new_data = get_crypto_data_from_coinmarketcap(crypto_name=asset_info.api_id_name)
+                if new_data is not None:
+                    asset_info.current_price = new_data['current_price']
+                    asset_info.image = new_data['image']
+                    asset_info.save()
+                else:
+                    raise Exception(f"AssetInfo {asset_info.fullname} could not be updated with api request and webscraping")
+    except Exception as e:
+        logger.error(f"Update error: {e}")
+        return None
 
 
 def map_kraken_coins():
@@ -241,3 +380,33 @@ def map_kraken_tx_types():
         'sell': 'Verkaufen',
         'transfer': 'Transfer'
     }
+
+
+def get_coin_pairs(dataframe: pd.DataFrame):
+    """Return separated coin pairs from Kraken API e.g. for XXBTZEUR is XXBT and ZEUR"""
+    # pairs = set([row['pair'] for index, row in dataframe.iterrows()])
+    # joined_pairs_list = ",".join(pairs)
+    # url = f'https://api.kraken.com/0/public/AssetPairs?pair={joined_pairs_list}'
+    # response = requests.get(url)
+    # if response.status_code != 200:
+    #     return 'Fehler beim Abrufen der Daten von der API'
+    #
+    # data = response.json()['result']
+    # return data
+    pairs = set([row['pair'] for index, row in dataframe.iterrows()])
+    joined_pairs_list = ",".join(pairs)
+    url = f'https://api.kraken.com/0/public/AssetPairs?pair={joined_pairs_list}'
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()['result']
+        if data:
+            return data
+        else:
+            raise Exception("Asset Pairs could not be separated")
+    except Exception as e:
+        logger.error(f"Error retrieving data from the API: {e}")
+        return None
+    except requests.RequestException as e:
+        logger.error(f"Error retrieving data from the API: {e}")
+        return None
