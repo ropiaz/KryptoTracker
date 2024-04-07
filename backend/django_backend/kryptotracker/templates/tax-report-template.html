@@ -1,0 +1,208 @@
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        .disclaimer {
+            color: gray;
+            font-size: 12px;
+            margin-bottom: 10px;
+            text-align: left;
+            padding: 0 20px;
+        }
+
+        .header-content {
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .header-text {
+            font-size: 20px;
+            margin-top: 10px; /* Abstand zwischen Logo und Text */
+        }
+
+        .border {
+            border: 1px solid black;
+            padding: 2px 2px 2px 2px;
+        }
+
+        .page-break {
+            page-break-before: always; /* Für ältere Browser */
+            break-before: always; /* Neuere CSS Syntax */
+        }
+
+        table {
+          caption-side: bottom;
+          border-collapse: collapse;
+        }
+
+        th {
+          text-align: inherit;
+          text-align: -webkit-match-parent;
+        }
+
+        thead,
+        tbody,
+        tfoot,
+        tr,
+        td,
+        th {
+          border-color: inherit;
+          border-style: solid;
+          border-width: 0;
+        }
+    </style>
+    <title>KryptoTracker - Steuerbericht</title>
+</head>
+<body>
+    <div class="disclaimer">
+        Dieses Dokument wurde maschinell von einer Software generiert, die als Teil eines Studienprojekts an der Dualen Hochschule Baden-Württemberg Mannheim von Roberto G. Piazza entwickelt wurde.
+    </div>
+    <header class="header">
+        <div class="header-content">
+            <img src="{{ img_path }}" alt="KryptoTracker-Logo" height="100px" width="auto" />
+            <p class="header-text">KryptoTracker</p>
+        </div>
+    </header>
+
+    <!--  Page 1: Overview  -->
+    <h1>I. Übersicht</h1>
+    <h1>1. Steuerpflichtige Einkünfte aus dem Handel mit Kryptowährungen für
+        {%if from_date is None and to_date is None %}
+            das Jahr {{ tax_year }}
+        {%elif tax_year is None%}
+            den Zeitraum {{ from_date|date:"d.m.Y" }} - {{ to_date|date:"d.m.Y" }}
+        {%endif%}
+    </h1>
+
+    <h2>1.1 Ermittlung der sonstigen Einkünfte aus privaten Veräußerungsgeschäften nach § 23 EStG in EUR</h2>
+    <!-- Erste Tabelle -->
+    <table>
+        <tbody>
+            <tr>
+                <td>Summe Veräußerungsgewinn / -verlust</td>
+                <td>{{ trade_value }}</td>
+            </tr>
+            <tr>
+                <td>Summe der Handelsgebühren</td>
+                <td>{{ fee_trade_value }}</td>
+            </tr>
+            <tr>
+                <td>Freigrenze</td>
+                <td>{{ tax_free_trade_limit }}</td>
+            </tr>
+            <tr>
+                <td colspan="2"><hr/></td>
+            </tr>
+            <tr>
+                <td>Steuerrelevanter Veräußerungsgewinn / -verlust</td>
+                <td><strong>{{ total_trade_value }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="border">
+        <p>Sonstige Einkünfte aus privaten Veräußerungsgeschäften im Sinne des § 23 EStG <br> - einzutragen in Anlage SO - Zeile 54: <strong>{{ total_trade_value }} €</strong></p>
+    </div>
+
+    <h2>1.2 Ermittlung der sonstigen Einkünfte nach § 22 Nr. 3 EStG in EUR</h2>
+    <!-- Zweite Tabelle -->
+    <table>
+        <tbody>
+            <tr>
+                <td>Summe sonstige Einkünfte</td>
+                <td>{{ reward_value }}</td>
+            </tr>
+            <tr>
+                <td>Summe der Handelsgebühren</td>
+                <td>{{ fee_reward_value }}</td>
+            </tr>
+            <tr>
+                <td>Freigrenze</td>
+                <td>{{ tax_free_reward_limit }}</td>
+            </tr>
+            <tr>
+                <td colspan="2"><hr/></td>
+            </tr>
+            <tr>
+                <td>Steuerrelevante sonstige Einkünfte</td>
+                <td><strong>{{ total_reward_value }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="border">
+        <p>Sonstige Einkünfte im Sinne des § 22 Nr. 3 EStG <br> - einzutragen in Anlage SO - Zeile 11: <strong>{{ total_reward_value }} €</strong></p>
+    </div>
+
+    <div class="page-break"></div>
+
+    <!--  Page 2: Transactions Trade Table  -->
+    <h1>II. Einzeltransaktionsaufstellung der sonstigen Einkünfte aus privaten Veräußerungsgeschäften nach § 23 EStG</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Datum und Uhrzeit</th>
+                <th>Kryptowährung</th>
+                <th>Gewinn</th>
+                <th>Handelsgebühren (in EUR)</th>
+                <th>Gewinn (in EUR)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {%if len_of_trades == 0 %}
+                <tr>
+                    <td colspan="5" style="text-align: center;">Keine Transaktionen getätigt.</td>
+                </tr>
+            {%else %}
+                {% for transaction in trades_tx %}
+                <tr>
+                    <td>{{ transaction.date|date:"d.m.Y H:i" }}</td>
+                    <td>{{ transaction.asset }}</td>
+                    <td>{{ transaction.amount }}</td>
+                    <td>{{ transaction.fee }}</td>
+                    <td>{{ transaction.value }}</td>
+                </tr>
+                {% endfor %}
+            {%endif%}
+        </tbody>
+    </table>
+
+    <div class="page-break"></div>
+
+    <!--  Page 3: Transactions Rewards Table  -->
+    <h1>III. Einzeltransaktionsaufstellung der sonstigen Einkünfte nach § 22 Nr. 3 EStG</h1>
+    <!-- Rewards Transactions Table -->
+    <table class="table table-danger">
+        <thead>
+            <tr>
+                <th>Datum und Uhrzeit</th>
+                <th>Kryptowährung</th>
+                <th>Gewinn</th>
+                <th>Handelsgebühren (in EUR)</th>
+                <th>Gewinn (in EUR)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {%if len_of_rewards == 0 %}
+                <tr>
+                    <td colspan="5" style="text-align: center;">Keine Transaktionen getätigt.</td>
+                </tr>
+            {%else %}
+                {% for transaction in rewards_tx %}
+                <tr>
+                    <td>{{ transaction.date|date:"d.m.Y H:i" }}</td>
+                    <td>{{ transaction.asset }}</td>
+                    <td>{{ transaction.amount }}</td>
+                    <td>{{ transaction.fee }}</td>
+                    <td>{{ transaction.value }}</td>
+                </tr>
+                {% endfor %}
+            {%endif%}
+        </tbody>
+    </table>
+</body>
+</html>

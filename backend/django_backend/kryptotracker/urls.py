@@ -1,5 +1,5 @@
 # Author: Roberto Piazza
-# Date: 12.01.2023
+# Date: 17.02.2023
 
 from django.urls import path, include
 from rest_framework import routers
@@ -37,8 +37,8 @@ urlpatterns = [
 
     # path('exchange-api/', views.ExchangeApiAPIView.as_view(), name='exchange-api'),
 
-    # path('/tax-report/', views.TaxReportAPIView.as_view(), name='tax-report'),
-    # path('/tax-report/<int:pk>', views.TaxReportDetailAPIView.as_view(), name='tax-report-detail'),
+    path('tax-report/', views.TaxReportAPIView.as_view(), name='tax-report'),
+    path('tax-report/<int:pk>', views.TaxReportAPIView.as_view(), name='tax-report-detail'),
 
     # path("user/", include(router.urls)),
 ]

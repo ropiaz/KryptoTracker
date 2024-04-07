@@ -32,7 +32,7 @@ export default function Dashboard(){
                 </div>
             </div>
             <div className="">
-                <TaxReports />
+                <TaxReports dashboardData={dashboardData} />
             </div>
         </div>
     );

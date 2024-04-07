@@ -86,3 +86,15 @@ class Transaction(models.Model):
     status = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
+
+
+class TaxReport(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=False)
+    report_pdf = models.BinaryField(null=False)
+    income_trading = models.FloatField(default=0.0, null=False)
+    income_staking = models.FloatField(default=0.0, null=False)
+    year = models.IntegerField(null=True)
+    start_date = models.DateField(null=True)
+    end_date = models.DateField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=False)
+    updated_at = models.DateTimeField(auto_now=True, null=False)

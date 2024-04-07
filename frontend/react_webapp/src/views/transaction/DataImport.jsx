@@ -1,7 +1,7 @@
-import React, {useState} from "react";
+import React, { useState } from "react";
 import axios from "axios";
-import {useStateContext} from "../../contexts/ContextProvider.jsx";
-import {useNavigate} from "react-router-dom";
+import { useStateContext } from "../../contexts/ContextProvider.jsx";
+import { useNavigate } from "react-router-dom";
 
 const FileImportFormular = () => {
     const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api`;
@@ -10,6 +10,7 @@ const FileImportFormular = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState([]);
     const [csvFile, setCsvFile] = useState(null);
+    const [csvFile2, setCsvFile2] = useState(null);
 
     const handleFileChange = (e) => {
         if (e.target.files) {
@@ -17,16 +18,23 @@ const FileImportFormular = () => {
         }
     };
 
+    const handleFileChange2 = (e) => {
+        if (e.target.files) {
+            setCsvFile2(e.target.files[0]);
+        }
+    };
+
     const handleFileUpload = async (ev) => {
         ev.preventDefault();
-        if (!csvFile) {
-            setErrors(["Bitte wählen Sie eine Datei aus."]);
+        if (!csvFile || !csvFile2) {
+            setErrors(["Bitte wählen Sie die ledgers.csv und trades.csv Dateien aus."]);
             return;
         }
 
         setIsLoading(true);
         const formData = new FormData();
         formData.append("csvFile", csvFile);
+        formData.append("csvFile2", csvFile2);
 
         try {
             const response = await axios.post(`${apiUrl}/file-import/`, formData, {
@@ -45,13 +53,15 @@ const FileImportFormular = () => {
             if(response.status === 200){
                 console.log(response.data);
                 setErrors([]);
+                setCsvFile(null);
+                setCsvFile2(null);
                 setNotification("Datenimport erfolgreich.");
                 navigate('/user/dashboard');
                 window.location.reload();
             }
 
         } catch (error) {
-            setErrors([error.response.data.message]);
+            setErrors([error.response.data.error]);
             console.error("Fehler beim Senden der Datei", error);
         } finally {
             setIsLoading(false);
@@ -101,10 +111,10 @@ const FileImportFormular = () => {
                         <div className="mb-3 col-md-6">
                             <label htmlFor="csvFile" className="form-label">Wähle die ledgers.csv Datei aus:</label>
                             <input type="file"
-                                   id="csvFile"
-                                   name="csvFile"
+                                   id="csvFile2"
+                                   name="csvFile2"
                                    className="form-control form-control-sm"
-                                   onChange={handleFileChange}
+                                   onChange={handleFileChange2}
                             />
                         </div>
 
