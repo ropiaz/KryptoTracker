@@ -1,5 +1,5 @@
 # Author: Roberto Piazza
-# Date: 17.02.2023
+# Date: 25.03.2023
 
 from django.urls import path, include
 from rest_framework import routers
@@ -35,7 +35,7 @@ urlpatterns = [
 
     path('file-import/', views.KrakenFileImportAPIView.as_view(), name='file-import'),
 
-    # path('exchange-api/', views.ExchangeApiAPIView.as_view(), name='exchange-api'),
+    path('exchange-api/', views.ExchangeApiAPIView.as_view(), name='exchange-api'),
 
     path('tax-report/', views.TaxReportAPIView.as_view(), name='tax-report'),
     path('tax-report/<int:pk>', views.TaxReportAPIView.as_view(), name='tax-report-detail'),

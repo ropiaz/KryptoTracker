@@ -13,7 +13,7 @@ export default function UserLayout(){
     return (
         <div id="userlayout">
             <Header />
-            <main>
+            <main className="min-vh-75">
                 <Outlet />
             </main>
             {notification &&

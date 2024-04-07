@@ -101,9 +101,9 @@ export default function Settings(){
 
     return (
         <>
-            <div className="container mt-2 mb-2">
+            <div className="container mt-3 mb-3 fadeInDown animated">
                 <h2>Settings</h2>
-                <div className="card animated fadeInDown h-100">
+                <div className="card h-100">
                     <div className="card-body">
                         <form onSubmit={handleEdit}>
                             <h2 className="mb-3">Meine Daten</h2>
