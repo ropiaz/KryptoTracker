@@ -1,5 +1,5 @@
 # Author: Roberto Piazza
-# Date: 20.01.2023
+# Date: 08.02.2023
 
 # models import and django auth functions
 from django.db.models import Q
@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.utils import timezone
 # dependencies rest_framework
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
@@ -18,7 +19,9 @@ from .serializers import *
 # python and other dependencies
 from .utils.crypto_data import get_currency_data, get_historical_price_at_time, convert_crypto_amount, get_crypto_data_from_coinmarketcap, get_historical_price_at_time_coingecko
 from datetime import datetime, timedelta
+import pandas as pd
 import pytz
+import requests
 
 
 class LogoutAPI(APIView):
@@ -136,8 +139,41 @@ class DashboardAPIView(APIView):
     authentication_classes = [TokenAuthentication]
 
     # TODO: update prices from owned assets every 30 min?
-    def update_currency_prices(self):
-        pass
+    def update_asset_info(self, asset_info, portfolio):
+        """Update asset info image and current price if last updated is > 30min. If CoinGecko fails use webscraping and get data from coinmarkecap"""
+        if asset_info.api_id_name == 'euro':
+            return
+
+        current_time = timezone.now()
+        time_delta = timedelta(minutes=180)
+        if current_time - asset_info.updated_at < time_delta and asset_info.current_price != 0.0:
+            # print(f"{asset_info.fullname} wurde vor weniger als 30 Minuten aktualisiert.")
+            return
+
+        def update_balances(asset, user_portfolio):
+            print("update balances")
+            # update portfolio balance and asset owned quantity
+            asset_owned = AssetOwned.objects.filter(asset=asset, portfolio=user_portfolio).first()
+            old_quantity_price = asset_owned.quantity_price
+            asset_owned.quantity_price = asset.current_price * asset_owned.quantity_owned
+            asset_owned.save()
+            user_portfolio.balance += asset_owned.quantity_price - old_quantity_price
+            user_portfolio.save()
+
+        try:
+            # get data from coingecko api
+            new_data = get_currency_data(api_id_name=asset_info.api_id_name)
+            asset_info.current_price = new_data['current_price']
+            asset_info.image = new_data['image']
+            asset_info.save()
+            update_balances(asset=asset_info, user_portfolio=portfolio)
+        except:
+            # get data from webscraping coinmarketcap
+            data = get_crypto_data_from_coinmarketcap(crypto_name=asset_info.api_id_name)
+            asset_info.current_price = data['current_price']
+            asset_info.image = data['image']
+            asset_info.save()
+            update_balances(asset=asset_info, user_portfolio=portfolio)
 
     def get_balances(self, portfolios):
         """Calculate sum balance of all portfolios and extract each balance from one portfolio"""
@@ -167,6 +203,7 @@ class DashboardAPIView(APIView):
             currencies = []
             for own in owned:
                 if own.portfolio == portfolio:
+                    self.update_asset_info(asset_info=own.asset, portfolio=portfolio)
                     currency = {
                         'acronym': own.asset.acronym.upper(),
                         'img': own.asset.image,
@@ -232,17 +269,23 @@ class DashboardAPIView(APIView):
             )
         return count_transactions, first_transaction_formatted, last_transaction_formatted, transaction_assets
 
-    # TODO: represent duplicate assets as one
     def get_chart_data(self, user, asset_infos):
         """Return all owned assets with acronym and their value in euro."""
         # get all owned assets from all portfolios that belongs to a user
         asset_owned = AssetOwned.objects.filter(portfolio__user=user, asset__in=asset_infos)
-        data = []
+
+        assets_sum = {}
         for owned in asset_owned:
-            data.append({
-                'asset': owned.asset.acronym.upper(),
-                'EUR': round(owned.quantity_price, 3)
-            })
+            asset_acronym = owned.asset.acronym.upper()
+            if asset_acronym in assets_sum:
+                # add the value to the existing asset
+                assets_sum[asset_acronym] += round(owned.quantity_price, 3)
+            else:
+                # add new asset to the dictionary
+                assets_sum[asset_acronym] = round(owned.quantity_price, 3)
+
+        # create a list of dictionaries from the assets_sum dictionary
+        data = [{'asset': asset, 'EUR': value} for asset, value in assets_sum.items()]
 
         # sort list ASC
         sorted_data = sorted(data, key=lambda x: x['EUR'], reverse=True)
@@ -261,15 +304,15 @@ class DashboardAPIView(APIView):
             token_obj = Token.objects.get(key=token)
             user = token_obj.user
             if user is not None:
-                # get balances from portfolios
+                # get owned assets
                 portfolios = Portfolio.objects.filter(user=user)
                 portfolio_serializer = PortfolioSerializer(portfolios, many=True)
-                sum_balance, spot_balance, staking_balance = self.get_balances(portfolio_serializer.data)
-
-                # get owned assets
                 asset_owned = AssetOwned.objects.filter(portfolio__in=portfolios)
                 asset_owned_serializer = AssetOwnedSerializer(asset_owned, many=True)
                 count_asset_owned = len(asset_owned_serializer.data)
+
+                # get balances from portfolios
+                sum_balance, spot_balance, staking_balance = self.get_balances(portfolio_serializer.data)
 
                 # get all transactions and extract necessary data
                 count_transactions, first_transaction_formatted, last_transaction_formatted, last_five_transactions = self.get_transactions_data(user=user)
@@ -308,10 +351,15 @@ class AssetOwnedAPIView(APIView):
     """API View for handling CRUD operations on AssetOwned model."""
     authentication_classes = [TokenAuthentication]
 
-    # TODO: update asset only if last updated > 30 min?
     def update_asset_info(self, asset_info):
-        """Update asset info image and current price. If CoinGecko fails use webscraping and get data from coinmarkecap"""
+        """Update asset info image and current price if last updated is > 30min. If CoinGecko fails use webscraping and get data from coinmarkecap"""
         if asset_info.api_id_name == 'euro':
+            return
+
+        current_time = timezone.now()
+        time_delta = timedelta(minutes=30)
+        if current_time - asset_info.updated_at < time_delta and asset_info.current_price != 0.0:
+            # print(f"{asset_info.fullname} wurde vor weniger als 30 Minuten aktualisiert.")
             return
 
         try:
@@ -399,7 +447,7 @@ class PortfolioAPIView(APIView):
     authentication_classes = [TokenAuthentication]
 
     def transform_data(self, data):
-        """Return only id, name, type"""
+        """Return only id, name, balance, type"""
         transformed_data = []
         for value in data:
             context = {
@@ -541,12 +589,15 @@ class TransactionAPIView(APIView):
             # combine data into dict
             txs.append(
                 {
+                    'tx_id': tx['id'],
                     'tx_type': tx_type.type,
                     'asset': asset_owned.asset.acronym.upper(),
                     'tx_amount': str(round(tx['tx_amount'], 3)).replace('.', ','),
                     'tx_value': str(round(tx['tx_value'], 3)).replace('.', ','),
                     'tx_fee': str(round(tx['tx_fee'], 3)).replace('.', ','),
                     'tx_date': tx_date_formatted,
+                    'tx_hash': tx['tx_hash'],
+                    'tx_status': 'In Bearbeitung' if tx['status'] == 0 else 'Abgeschlossen',
                     'tx_sender_address': tx['tx_sender_address'],
                     'tx_recipient_address': tx['tx_recipient_address'],
                     'tx_comment': '' if not tx['tx_comment'] else Comment.objects.get(id=tx['tx_comment']).text,
@@ -613,6 +664,7 @@ class TransactionAPIView(APIView):
         print(portfolio, tx_type, tx_date, tx_asset_name)
 
     # TODO: get current currency price if tx_price is given?
+    # TODO: set transaction status true if price is available, otherwise false and queuing
     def post(self, request, *args, **kargs):
         """POST Route /api/transaction/ for creating new transactions"""
         try:
@@ -651,7 +703,7 @@ class TransactionAPIView(APIView):
 
                 # TODO: Refactor code, check asset_in_portfolio in second if statement and reduce complexity
                 if asset_in_portfolio is None:
-                    if tx_type.type in ["Staking-Reward", "Kaufen", "Verkaufen", "Gesendet", "Einzahlung", "Auszahlung"]:
+                    if tx_type.type in ["Reward", "Kaufen", "Verkaufen", "Gesendet", "Einzahlung", "Auszahlung"]:
                         """
                         add asset to portfolio with current price
                         update portfolio balance
@@ -786,7 +838,7 @@ class TransactionAPIView(APIView):
                         return Response(data={'message': 'Kein gültigen Transaktionstyp angegeben.'},
                                         status=status.HTTP_400_BAD_REQUEST)
                 else:
-                    if tx_type.type in ["Staking-Reward", "Kaufen", "Verkaufen", "Gesendet", "Einzahlung", "Auszahlung"]:
+                    if tx_type.type in ["Reward", "Kaufen", "Verkaufen", "Gesendet", "Einzahlung", "Auszahlung"]:
                         """
                         update asset in portfolio with new quantity and price
                         update portfolio balance
@@ -929,3 +981,537 @@ class TransactionAPIView(APIView):
                 return Response(data={"message": "Transaktion erfolgreich erstellt."}, status=status.HTTP_201_CREATED)
         except Token.DoesNotExist:
             return Response(data={'detail': 'Ungültiges Token.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TransactionDetailAPIView(APIView):
+    """Retrieve, update or delete a transaction instance."""
+    def get_object(self, pk):
+        try:
+            return Transaction.objects.get(pk=pk)
+        except Transaction.DoesNotExist:
+            return Response(data={'error': 'Transaktion nicht gefunden.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # def put(self, request, pk):
+    #     transaction = self.get_object(pk)
+    #     serializer = TransactionSerializer(snippet, data=request.data)
+    #     if serializer.is_valid():
+    #         serializer.save()
+    #         return Response(serializer.data)
+    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+    # TODO: decrease asset / portfolio volume when deleting transcation?
+    def delete(self, request, pk):
+        transaction = self.get_object(pk)
+        transaction.delete()
+        return Response(data={'message': 'success'}, status=status.HTTP_204_NO_CONTENT)
+
+
+class KrakenFileImportAPIView(APIView):
+    """API View for handling csv file data import from crypto exchanges."""
+    authentication_classes = [TokenAuthentication]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.coin_mapping = {
+            'ADA.S':     'ADA',
+            'ALGO.S':    'ALGO',
+            'ATOM.S':    'ATOM',
+            'ATOM21.S':  'ATOM',
+            'DOT.S':     'DOT',
+            'DOT28.S':   'DOT',
+            'ETH2':      'ETH',
+            'ETH2.S':    'ETH',
+            'ETHW':      'ETH',
+            'FLOW.S':    'FLOW',
+            'FLOW14.S':  'FLOW',
+            'FLOWH.S':   'FLOW',
+            'FLR.S':     'FLR',
+            'GRT.S':     'GRT',
+            'GRT28.S':   'GRT',
+            'KAVA.S':    'KAVA',
+            'KAVA21.S':  'KAVA',
+            'KSM.S':     'KSM',
+            'KSM07.S':   'KSM',
+            'LUNA.S':    'LUNA',
+            'MATIC.S':   'MATIC',
+            'MATIC04.S': 'MATIC',
+            'MINA.S':    'MINA',
+            'SCRT.S':    'SCRT',
+            'SCRT21.S':  'SCRT',
+            'SOL.S':     'SOL',
+            'SOL03.S':   'SOL',
+            'USDC.M':    'USDC',
+            'USDT.M':    'USDT',
+            'XBT.M':     'XBT',
+            'TRX.S':     'TRX',
+            'XBT':       'BTC',
+            'XETC':      'ETC',
+            'XETH':      'ETH',
+            'XTZ.S':     'XTZ',
+            'XLTC':      'LTC',
+            'XMLN':      'MLN',
+            'XREP':      'REP',
+            'XXBT':      'BTC',
+            'XXDG':      'XDG',
+            'XXLM':      'XLM',
+            'XXMR':      'XMR',
+            'XXRP':      'XRP',
+            'XZEC':      'ZEC',
+            'ZAUD':      'AUD',
+            'ZCAD':      'CAD',
+            'ZEUR':      'EUR',
+            'ZGBP':      'GBP',
+            'ZJPY':      'JPY',
+            'ZUSD':      'USD',
+        }
+
+        self.type_mapping = {
+            'trade':      'Handel',
+            'deposit':    'Einzahlung',
+            'withdrawal': 'Gesendet',
+            'staking':    'Reward',
+            'earn':       'Reward',
+            'buy':        'Kaufen',
+            'sell':       'Verkaufen',
+            'transfer':   'Transfer'
+        }
+
+    def get_coin_pairs(self, dataframe):
+        pairs = set([row['pair'] for index, row in dataframe.iterrows()])
+        joined_pairs_list = ",".join(pairs)
+        url = f'https://api.kraken.com/0/public/AssetPairs?pair={joined_pairs_list}'
+        response = requests.get(url)
+        if response.status_code != 200:
+            return 'Fehler beim Abrufen der Daten von der API'
+
+        data = response.json()['result']
+        return data
+
+    def update_asset_info(self, asset_info: AssetInfo):
+        """Update asset info image and current price. If CoinGecko fails use webscraping and get data from coinmarkecap"""
+        if asset_info.api_id_name == 'euro':
+            return
+
+        current_time = timezone.now()
+        time_delta = timedelta(minutes=30)
+        if current_time - asset_info.updated_at < time_delta and asset_info.current_price != 0.0:
+            # print(f"{asset_info.fullname} wurde vor weniger als 30 Minuten aktualisiert.")
+            return
+
+        try:
+            new_data = get_currency_data(api_id_name=asset_info.api_id_name)
+            asset_info.current_price = new_data['current_price']
+            asset_info.image = new_data['image']
+            asset_info.save()
+        except:
+            data = get_crypto_data_from_coinmarketcap(crypto_name=asset_info.api_id_name)
+            asset_info.current_price = data['current_price']
+            asset_info.image = data['image']
+            asset_info.save()
+
+    def create_asset_update_portfolio(self, asset_owned: AssetOwned, asset_info: AssetInfo, portfolio: Portfolio,
+                                      balance: float, quantity_price: float, amount: float):
+        if asset_owned is None:
+            asset_owned = AssetOwned.objects.create(
+                quantity_owned=balance,
+                quantity_price=quantity_price,
+                asset=asset_info,
+                portfolio=portfolio,
+            )
+            portfolio.balance += quantity_price
+            portfolio.save()
+        else:
+            asset_owned.quantity_owned += amount
+            asset_owned.save()
+            old_quantity_price = asset_owned.quantity_price
+            asset_owned.quantity_price = asset_info.current_price * asset_owned.quantity_owned
+            asset_owned.save()
+            portfolio.balance += asset_owned.quantity_price - old_quantity_price
+            portfolio.save()
+
+        return asset_owned
+
+    def create_tx(self, asset_owned: AssetOwned, asset_info: AssetInfo, portfolio: Portfolio,  user: User, element, amount: float):
+        datetime_price = element['amount']
+        if element['asset'] != 'EUR':
+            # get price on tx_date with coingecko, if error try cryotocompare api otherwise 0.0 and TODO: update later
+            datetime_price = get_historical_price_at_time_coingecko(crypto_id=asset_info.api_id_name,
+                                                                    tx_date=element['time']) if asset_info.api_id_name != "euro" else 1.0
+            if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                datetime_price = get_historical_price_at_time(tx_date=element['time'],
+                                                              crypto_symbol=element['asset']) if asset_info.api_id_name != "euro" else 1.0
+                if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                    datetime_price = 0.0
+
+        tx_type = TransactionType.objects.get(type=element['type'])
+        comment_text = f"{portfolio.name}-Import: {amount} {element['asset']}"
+        comment = Comment.objects.create(text=comment_text)
+        Transaction.objects.create(
+            user=user,
+            asset=asset_owned,
+            tx_type=tx_type,
+            tx_comment=comment,
+            tx_hash=element['txid'],
+            tx_amount=amount,
+            tx_value=datetime_price * amount if element['asset'] != 'EUR' else amount,
+            tx_fee=element['fee'],
+            tx_date=element['time'],
+            status=False if datetime_price == 0.0 else True
+        )
+
+    def post(self, request):
+        """POST Route /api/import-file/ for creating new transactions and updating portfolios from csv file"""
+        csv_file = request.FILES['csvFile']
+        if not csv_file:
+            return Response({"error": "Keine Datei hochgeladen."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            token = request.auth
+            token_obj = Token.objects.get(key=token)
+            user = token_obj.user
+            if user is not None:
+                '''
+                1. Read file, drop columns subtype and aclass, format datetime field
+                2. convert asset names from csv column "asset" to predefined asset acronym (symbol) for searching AssetInfo in database
+                3. iterate through each line and inspect data
+                '''
+                df = pd.read_csv(csv_file, sep=",")
+                df['time'] = pd.to_datetime(df['time']).dt.strftime('%Y-%m-%dT%H:%M')
+
+                count_rows = len(df.index)
+                if count_rows == 0:
+                    return Response({"message": "CSV-Export enthält keine Einträge."}, status=status.HTTP_202_ACCEPTED)
+
+                # check if it's trades or ledgers csv export
+                if "pair" in df.columns and "ordertxid" in df.columns:
+                    # it's trades.csv
+                    print("trades csv")
+                    '''
+                    format dataframe:
+                    - drop unnecessary columns, 
+                    - map types with TransactionType,
+                    - split pairs column in base (target asset) and quote (source asset) and insert into dataframe.
+                    - get or create 'Kraken' Spot Portfolio and iterate through dataframe
+                    '''
+                    df = df.drop(columns=['ordertype', 'margin', 'misc', 'ledgers'])
+                    df['type'] = df['type'].map(self.type_mapping).fillna(df['type'])
+                    df.insert(loc=3, column='base', value="")
+                    df.insert(loc=4, column='quote', value="")
+
+                    data = self.get_coin_pairs(dataframe=df)
+                    if not isinstance(data, dict) and data.startswith("Fehler"):
+                        return Response(
+                            data={
+                                'message': 'Kryptopaare konnten online nicht ermittelt werden. Versuche es später erneut'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+                    pair_separated = {}
+                    # assign pairs to their originals coins in a dict e.g. { 'ADAEUR': {'base': 'ADA', 'quote': 'EUR} }
+                    for k, v in data.items():
+                        pairs = v['wsname'].split('/')
+                        base = pairs[0]   # target coin
+                        quote = pairs[1]  # source coin
+                        pair_separated[k] = {'base': base, 'quote': quote}
+
+                    def assign_base_quote(row, pairs_separated):
+                        row['base'] = pairs_separated[row['pair']]['base']
+                        row['quote'] = pairs_separated[row['pair']]['quote']
+                        return row
+
+                    df = df.apply(lambda row: assign_base_quote(row, pair_separated), axis=1)
+                    df['base'] = df['base'].map(self.coin_mapping).fillna(df['base'])
+                    df['quote'] = df['quote'].map(self.coin_mapping).fillna(df['quote'])
+
+                    # check if Spot portfolio exist, if not create one
+                    portfolio_type_spot = PortfolioType.objects.filter(type="Spot").first()
+                    portfolio = Portfolio.objects.filter(user=user,
+                                                         portfolio_type=portfolio_type_spot,
+                                                         name='Kraken').first()
+
+                    if portfolio is None:
+                        portfolio = Portfolio.objects.create(user=user,
+                                                             name='Kraken',
+                                                             balance=0.0,
+                                                             portfolio_type=portfolio_type_spot)
+
+                    print(df)
+
+                    for idx, element in df.iterrows():
+                        '''
+                        - if Kraken TX-ID exists, continue (then it's already imported)
+                        - get base and quote asset and update values (current price)
+                        - if quote != EUR, get historical price from asset otherwise take from csv data
+                        - check if assets exist in portfolio, if not create AssetOwned
+                            - case buy: increase base asset balance and decrease quote asset balance, update portfolio
+                            - case sell decrease base asset balance and increase quote asset balance, update portfolio
+                        - create transaction
+                        '''
+                        tx_exists = Transaction.objects.filter(user=user, tx_hash=element['txid']).exists()
+                        if tx_exists:
+                            continue
+
+                        print(idx)
+
+                        asset_info_base = AssetInfo.objects.filter(acronym=element['base']).first()
+                        asset_info_quote = AssetInfo.objects.filter(acronym=element['quote']).first()
+
+                        if element['base'] == 'USD' and asset_info_base is None:
+                            asset_info_base = AssetInfo.objects.filter(acronym='USDT').first()
+                        if element['quote'] == 'USD' and asset_info_quote is None:
+                            asset_info_quote = AssetInfo.objects.filter(acronym='USDT').first()
+
+                        if asset_info_base is not None and asset_info_quote is not None:
+                            self.update_asset_info(asset_info=asset_info_base)
+                            self.update_asset_info(asset_info=asset_info_quote)
+
+                        asset_owned = AssetOwned.objects.filter(asset=asset_info_base, portfolio=portfolio).first()
+
+                        datetime_price = element['price']
+                        if element['quote'] != 'EUR':
+                            # get price on tx_date with coingecko, if error try cryotocompare api otherwise 0.0 and TODO: update later
+                            datetime_price = get_historical_price_at_time_coingecko(crypto_id=asset_info_base.api_id_name,
+                                                                                    tx_date=element['time']) if asset_info_base.api_id_name != "euro" else 1.0
+                            if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                                datetime_price = get_historical_price_at_time(tx_date=element['time'],
+                                                                              crypto_symbol=element['base']) if asset_info_base.api_id_name != "euro" else 1.0
+                                if not isinstance(datetime_price, float) and datetime_price.startswith("Fehler"):
+                                    datetime_price = 0.0
+
+                        if element['type'] in ['Kaufen', 'Verkaufen']:
+                            current_price = asset_info_base.current_price
+                            amount = element['vol']
+                            quantity_price = current_price * amount
+
+                            # in case of buy decrease quote asset
+                            amount_quote = -element['cost']
+                            quantity_price_quote = asset_info_quote.current_price * amount_quote
+
+                            if element['type'] in ['Verkaufen']:
+                                amount = -amount
+                                quantity_price = -quantity_price
+                                amount_quote = -amount_quote
+                                quantity_price_quote = -quantity_price_quote
+
+                            # handle the base asset. case buy: increase balance, case sell: decrease balance,
+                            if asset_owned is None:
+                                asset_owned = AssetOwned.objects.create(
+                                    quantity_owned=amount,
+                                    quantity_price=quantity_price,
+                                    asset=asset_info_base,
+                                    portfolio=portfolio,
+                                )
+                                portfolio.balance += quantity_price
+                                portfolio.save()
+                            else:
+                                asset_owned.quantity_owned += amount
+                                asset_owned.save()
+                                old_quantity_price = asset_owned.quantity_price
+                                asset_owned.quantity_price = current_price * asset_owned.quantity_owned
+                                asset_owned.save()
+                                portfolio.balance += asset_owned.quantity_price - old_quantity_price
+
+                            asset_owned_quote = AssetOwned.objects.filter(asset=asset_info_quote,
+                                                                          portfolio=portfolio).first()
+
+                            # handle the quote asset. case buy: decrease balance, case sell: increase balance,
+                            if asset_owned_quote is None:
+                                asset_owned_quote = AssetOwned.objects.create(
+                                    quantity_owned=amount_quote,
+                                    quantity_price=quantity_price_quote,
+                                    asset=asset_info_quote,
+                                    portfolio=portfolio,
+                                )
+                                portfolio.balance += quantity_price_quote
+                                portfolio.save()
+                            else:
+                                asset_owned_quote.quantity_owned += amount_quote
+                                asset_owned_quote.save()
+                                old_quantity_price = asset_owned_quote.quantity_price
+                                asset_owned_quote.quantity_price = asset_info_quote.current_price * asset_owned_quote.quantity_owned
+                                asset_owned_quote.save()
+                                portfolio.balance += asset_owned_quote.quantity_price - old_quantity_price
+
+                            tx_type = TransactionType.objects.get(type=element['type'])
+                            comment_buy = f"{portfolio.name}-Import: {element['base']} mit {element['quote']}"
+                            comment_sell = f"{portfolio.name}-Import: {element['base']} in {element['quote']}"
+                            comment = Comment.objects.create(text=comment_buy if tx_type.type == 'Kaufen' else comment_sell)
+                            transaction = Transaction.objects.create(
+                                user=user,
+                                asset=asset_owned,
+                                tx_type=tx_type,
+                                tx_comment=comment,
+                                tx_hash=element['txid'],
+                                tx_amount=amount,
+                                tx_value=datetime_price * amount if element['quote'] != 'EUR' else element['cost'],
+                                tx_fee=float(element['fee']),
+                                tx_date=element['time'],
+                                status=False if datetime_price == 0.0 else True
+                            )
+                elif "refid" in df.columns and "asset" in df.columns:
+                    # it's ledgers.csv
+                    '''
+                    format dataframe:
+                    - drop unnecessary columns and rows with NaN rows (these are doubled)
+                        - filter dataframe where txid, balance, subtype are not NaN or txid and balance are not NaN 
+                    - map types with TransactionType and assets,
+                    - get or create 'Kraken' Spot Portfolio and iterate through dataframe
+                    '''
+                    print("ledgers csv")
+
+                    df = df.drop(columns=['aclass'])
+                    df['asset'] = df['asset'].map(self.coin_mapping).fillna(df['asset'])
+                    df['type'] = df['type'].map(self.type_mapping).fillna(df['type'])
+
+                    # dataframe contains columns where 'txid' and 'balance' are not NaN and additionally 'subtype' is not NaN
+                    condition1 = pd.notna(df['txid']) & pd.notna(df['balance']) & pd.notna(df['subtype'])
+                    # dataframe contains columns where 'txid' and 'balance' are not NaN
+                    condition2 = pd.notna(df['txid']) & pd.notna(df['balance'])
+                    final_condition = condition1 | condition2
+                    df = df[final_condition]
+
+                    print(df)
+
+                    portfolio_type_spot = PortfolioType.objects.filter(type="Spot").first()
+                    portfolio_type_staking = PortfolioType.objects.filter(type="Staking").first()
+
+                    # check if user has staking and spot portfolio with name "Kraken"
+                    portfolio_spot = Portfolio.objects.filter(user=user,
+                                                              portfolio_type=portfolio_type_spot,
+                                                              name="Kraken").first()
+                    portfolio_staking = Portfolio.objects.filter(user=user,
+                                                                 portfolio_type=portfolio_type_staking,
+                                                                 name="Kraken").first()
+
+                    if "Reward" in df['type'].values and portfolio_staking is None:
+                        portfolio_staking = Portfolio.objects.create(user=user,
+                                                                     name='Kraken',
+                                                                     balance=0.0,
+                                                                     portfolio_type=portfolio_type_staking)
+                    if portfolio_spot is None:
+                        portfolio_spot = Portfolio.objects.create(user=user,
+                                                                  name='Kraken',
+                                                                  balance=0.0,
+                                                                  portfolio_type=portfolio_type_spot)
+
+                    not_found = []
+                    for index, element in df.iterrows():
+                        # print(index)
+                        tx_exists = Transaction.objects.filter(user=user, tx_hash=element['txid']).exists()
+                        if tx_exists:
+                            continue
+
+                        asset_info = AssetInfo.objects.filter(acronym=element["asset"]).first()
+
+                        if element['asset'] == 'USD' and asset_info is None:
+                            asset_info = AssetInfo.objects.filter(acronym='USDT').first()
+
+                        if asset_info is None:
+                            # print(f"{tx_asset_acronym} nicht gefunden")
+                            not_found.append({
+                                'txid': element["txid"],
+                                'tx_refid': element["refid"],
+                                'time': element["time"],
+                                'type': element["type"],
+                                'subtype': element["subtype"],
+                                'asset': element["asset"],
+                                'fee': element["fee"],
+                                'balance': element["balance"]
+                            })
+                            continue
+                        else:
+                            print(index)
+                            self.update_asset_info(asset_info=asset_info)
+
+                            amount = element['amount']
+                            balance = element['balance']
+                            quantity_price = amount * asset_info.current_price
+
+                            if element["type"] == "Reward":
+                                asset_owned = AssetOwned.objects.filter(asset=asset_info,
+                                                                        portfolio=portfolio_staking).first()
+                                asset_owned = self.create_asset_update_portfolio(asset_owned=asset_owned,
+                                                                                 asset_info=asset_info,
+                                                                                 portfolio=portfolio_staking,
+                                                                                 amount=amount,
+                                                                                 balance=balance,
+                                                                                 quantity_price=quantity_price)
+                                self.create_tx(asset_info=asset_info, asset_owned=asset_owned, user=user,
+                                               element=element, amount=amount, portfolio=portfolio_staking)
+                            elif element['type'] in ['Einzahlung']:
+                                # todo: check if withdrawal is here too
+                                asset_owned = AssetOwned.objects.filter(asset=asset_info,
+                                                                        portfolio=portfolio_spot).first()
+                                asset_owned = self.create_asset_update_portfolio(asset_owned=asset_owned,
+                                                                                 asset_info=asset_info,
+                                                                                 portfolio=portfolio_spot,
+                                                                                 amount=amount,
+                                                                                 balance=balance,
+                                                                                 quantity_price=quantity_price)
+                                self.create_tx(asset_info=asset_info, asset_owned=asset_owned, portfolio=portfolio_spot,
+                                               element=element, amount=amount, user=user)
+                            elif element['type'] in ['Transfer']:
+                                # handle transfers between spot, futures and staking portfolio
+                                '''spotfromstaking, stakingtospot, -- stakingfromspot, spottostaking, -- spottofutures, spotfromfutures'''
+                                if element['subtype'] in ['spottostaking', 'spotfromstaking', 'spottofutures', 'spotfromfutures']:
+                                    asset_owned = AssetOwned.objects.filter(asset=asset_info,
+                                                                            portfolio=portfolio_spot).first()
+                                    asset_owned = self.create_asset_update_portfolio(asset_owned=asset_owned,
+                                                                                     asset_info=asset_info,
+                                                                                     portfolio=portfolio_spot,
+                                                                                     amount=amount,
+                                                                                     balance=balance,
+                                                                                     quantity_price=quantity_price)
+                                    self.create_tx(asset_info=asset_info, asset_owned=asset_owned, user=user,
+                                                   portfolio=portfolio_spot, element=element, amount=amount)
+                                elif element['subtype'] in ['stakingfromspot', 'stakingtospot']:
+                                    asset_owned = AssetOwned.objects.filter(asset=asset_info, portfolio=portfolio_staking).first()
+                                    asset_owned = self.create_asset_update_portfolio(asset_owned=asset_owned,
+                                                                                     asset_info=asset_info,
+                                                                                     portfolio=portfolio_staking,
+                                                                                     amount=amount,
+                                                                                     balance=balance,
+                                                                                     quantity_price=quantity_price)
+                                    self.create_tx(asset_info=asset_info, asset_owned=asset_owned, user=user,
+                                                   portfolio=portfolio_staking, element=element, amount=amount)
+                                else:
+                                    not_found.append({
+                                        'txid': element["txid"],
+                                        'tx_refid': element["refid"],
+                                        'time': element["time"],
+                                        'type': element["type"],
+                                        'subtype': element["subtype"],
+                                        'asset': element["asset"],
+                                        'fee': element["fee"],
+                                        'balance': element["balance"]
+                                    })
+                                    continue
+                            elif element["type"] in ['Handel']:
+                                asset_owned = AssetOwned.objects.filter(asset=asset_info,
+                                                                        portfolio=portfolio_spot).first()
+                                asset_owned = self.create_asset_update_portfolio(asset_owned=asset_owned,
+                                                                                 asset_info=asset_info,
+                                                                                 portfolio=portfolio_spot,
+                                                                                 amount=amount,
+                                                                                 balance=balance,
+                                                                                 quantity_price=quantity_price)
+                                self.create_tx(asset_info=asset_info, asset_owned=asset_owned, user=user,
+                                               element=element, amount=amount, portfolio=portfolio_spot)
+                            elif element["type"] in ['Gesendet']:
+                                asset_owned = AssetOwned.objects.filter(asset=asset_info,
+                                                                        portfolio=portfolio_spot).first()
+                                asset_owned = self.create_asset_update_portfolio(asset_owned=asset_owned,
+                                                                                 asset_info=asset_info,
+                                                                                 portfolio=portfolio_spot,
+                                                                                 amount=amount,
+                                                                                 balance=balance,
+                                                                                 quantity_price=quantity_price)
+                                self.create_tx(asset_info=asset_info, asset_owned=asset_owned, user=user,
+                                               element=element, amount=amount, portfolio=portfolio_spot)
+                else:
+                    return Response({"error": "Dateiexport nicht akzeptiert."}, status=status.HTTP_400_BAD_REQUEST)
+
+                return Response(data={'message': 'success'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -1,5 +1,5 @@
 # Author: Roberto Piazza
-# Date: 12.01.2023
+# Date: 22.01.2023
 
 import json
 import requests
@@ -178,7 +178,7 @@ class Command(BaseCommand):
         assets = [asset_info, asset_info2, asset_info3, asset_info4]
 
         # create dummy transaction types
-        staking_type = TransactionType.objects.create(type='Staking-Reward')
+        staking_type = TransactionType.objects.create(type='Reward')
         buy_type = TransactionType.objects.create(type='Kaufen')
         sell_type = TransactionType.objects.create(type='Verkaufen')
         trade_type = TransactionType.objects.create(type='Handel')
@@ -202,7 +202,8 @@ class Command(BaseCommand):
                 tx_amount=random.uniform(100.0, 1000.0),
                 tx_value=random.uniform(100.0, 1000.0),
                 tx_fee=random.uniform(1.0, 10.0),
-                tx_date=random_tx_date
+                tx_date=random_tx_date,
+                status=True
             )
 
         self.stdout.write(self.style.SUCCESS('Data successfully created!'))

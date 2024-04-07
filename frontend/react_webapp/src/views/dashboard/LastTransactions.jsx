@@ -8,10 +8,11 @@ import tradeIcon from '../../assets/trade.png';
 // Return icon img-path according to transaction type id
 const getIcon = (transaction) => {
     switch (transaction.tx_type) {
-        case "Staking-Reward": return earnIcon;
+        case "Reward": return earnIcon;
         case "Kaufen": return receiveIcon;
         case "Verkaufen": return sentIcon;
         case "Handel": return tradeIcon;
+        case "Transfer": return tradeIcon;
         case "Gesendet": return sentIcon;
         case "Einzahlung": return earnIcon;
         case "Auszahlung": return sentIcon;

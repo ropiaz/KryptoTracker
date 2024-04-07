@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import 'axios';
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useStateContext } from "../../contexts/ContextProvider.jsx";
